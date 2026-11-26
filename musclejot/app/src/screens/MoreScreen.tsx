@@ -6,6 +6,8 @@ import { cleanSettings } from '../logic'
 import { deliverFile } from '../share'
 import { useStore } from '../store'
 import { CHIMES, REST_PRESETS, type ChimeId, type Settings, type Unit } from '../types'
+import { BUILD_LABEL } from '../build'
+import { NativeSelect } from '../native-select'
 import { Button, Panel, SafetyPoints } from '../ui'
 
 export function MoreScreen() {
@@ -58,6 +60,9 @@ export function MoreScreen() {
       <header className="pt-1">
         <h1 className="text-3xl font-semibold tracking-tight">More</h1>
         <p className="mt-1 text-mist">Export a copy often. This phone is the only place these workouts live.</p>
+        <p className="mt-2 text-xs text-faint" data-testid="build-label">
+          Build {BUILD_LABEL}
+        </p>
       </header>
       {status ? (
         <p className="rounded-2xl bg-goodbg px-4 py-3 text-good" role="status" data-testid="export-status">
@@ -74,21 +79,21 @@ export function MoreScreen() {
         <p className="mt-1 text-sm leading-relaxed text-mist">
           Weights on screen use this unit. Logged sets keep the unit they were saved in, and the + and − buttons follow the plate or dumbbell step for the unit you pick.
         </p>
-        <label className="mt-3 block text-sm font-medium text-mist">
-          Weight unit
-          <select
-            data-testid="weight-unit"
-            className="field mt-1"
+        <div className="mt-3">
+          <NativeSelect
+            testId="weight-unit"
+            label="Weight unit"
             value={settings.unit}
-            onChange={(event) => {
-              const unit: Unit = event.target.value === 'kg' ? 'kg' : 'lb'
+            onChange={(next) => {
+              const unit: Unit = next === 'kg' ? 'kg' : 'lb'
               save({ unit })
             }}
-          >
-            <option value="lb">lb</option>
-            <option value="kg">kg</option>
-          </select>
-        </label>
+            options={[
+              { value: 'lb', label: 'lb' },
+              { value: 'kg', label: 'kg' },
+            ]}
+          />
+        </div>
         <div className="mt-3 grid gap-3">
           <NumberField
             testId="plate-step"
@@ -144,21 +149,13 @@ export function MoreScreen() {
         <h2 className="text-lg font-semibold">Timer tone</h2>
         <p className="mt-1 text-sm leading-relaxed text-mist">Soft chimes are made in the browser. Nothing is downloaded.</p>
         <div className="mt-3 grid gap-3" data-testid="chime-panel">
-          <label className="block text-sm font-medium text-mist">
-            Chime
-            <select
-              data-testid="chime"
-              className="field mt-1"
-              value={settings.chime}
-              onChange={(event) => save({ chime: event.target.value as ChimeId })}
-            >
-              {CHIMES.map((chime) => (
-                <option key={chime.id} value={chime.id}>
-                  {chime.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <NativeSelect
+            testId="chime"
+            label="Chime"
+            value={settings.chime}
+            onChange={(next) => save({ chime: next as ChimeId })}
+            options={CHIMES.map((chime) => ({ value: chime.id, label: chime.label }))}
+          />
           <Button
             variant="secondary"
             data-testid="chime-preview"

@@ -19,6 +19,8 @@ const generated = [
   '_headers',
   'registerSW.js',
   'workbox-window.js',
+  'sw-update.js',
+  'sw-client.js',
 ]
 
 const existing = await readdir(root)
