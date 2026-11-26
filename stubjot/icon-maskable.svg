@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#12140f"/>
+  <g transform="translate(256 256) scale(0.8) translate(-256 -256)">
+    <path fill="#f4f1e6" d="M150 96h212v234l-26.5 16-26.5-16-26.5 16-26.5-16-26.5 16-26.5-16-26.5 16-26.5-16z"/>
+    <path d="M176 168h140M176 196h120M176 224h128" fill="none" stroke="#c9c3b4" stroke-width="10" stroke-linecap="round"/>
+    <path d="M176 268h160" fill="none" stroke="#f0b429" stroke-width="8" stroke-linecap="round" stroke-dasharray="14 12"/>
+    <g transform="translate(292 286) rotate(-42)">
+      <rect x="0" y="0" width="22" height="36" rx="4" fill="#d86a32"/>
+      <rect x="18" y="4" width="118" height="28" rx="6" fill="#f0b429"/>
+      <path d="M136 4 L168 18 L136 32 Z" fill="#f4f1e6"/>
+      <path d="M150 12 L168 18 L150 24 Z" fill="#12140f"/>
+    </g>
+    <text x="256" y="458" text-anchor="middle" font-family="DejaVu Sans, Outfit, sans-serif" font-size="72" font-weight="700" fill="#f4f1e6">StubJot</text>
+  </g>
+</svg>

@@ -1,0 +1,8 @@
+node_modules
+dist
+app/public/tesseract
+app/public/tessdata
+*.tsbuildinfo
+.vite
+test-results
+playwright-report

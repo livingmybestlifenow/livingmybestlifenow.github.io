@@ -1,0 +1,40 @@
+{
+  "name": "StubJot",
+  "short_name": "StubJot",
+  "description": "Receipt photos stay on this device. For gig work and the self-employed.",
+  "start_url": "/stubjot/",
+  "scope": "/stubjot/",
+  "id": "/stubjot/",
+  "display": "standalone",
+  "background_color": "#12140f",
+  "theme_color": "#12140f",
+  "lang": "en",
+  "orientation": "any",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    {
+      "src": "/stubjot/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/stubjot/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/stubjot/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/stubjot/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
