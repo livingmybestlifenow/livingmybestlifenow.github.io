@@ -3,6 +3,7 @@ import { playChime, pulseVibrate, unlockAudio } from '../chime'
 import { formatClock, formatDay, formatDuration, formatNumber, parseReps, parseWeight, weekdayName } from '../format'
 import { InstallBanner } from '../install'
 import { e1rmInUnit, moveItem, pausedSeconds, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
+import { ExercisePicker } from '../exercise-picker'
 import { useActiveWorkout, useStore } from '../store'
 import { REST_PRESETS, equipmentLabel, muscleLabel, type Exercise } from '../types'
 import { Button, Panel, Wordmark, cx } from '../ui'
@@ -87,61 +88,61 @@ export function LogScreen({ goMore }: { goMore: () => void }) {
 
 function StartList({ onEmpty, onRoutine }: { onEmpty: (name: string) => void; onRoutine: (id: string) => void }) {
   const { routines } = useStore()
-  const [choice, setChoice] = useState<'new' | string | null>(null)
+  const [choice, setChoice] = useState('')
   const [name, setName] = useState(weekdayName())
-  const ready = choice === 'new' ? name.trim().length > 0 : choice != null
+  const nameInput = useRef<HTMLInputElement>(null)
+  const sorted = routines.slice().sort((a, b) => a.name.localeCompare(b.name))
+  const ready = choice === 'new' ? name.trim().length > 0 : choice.length > 0
   return (
     <div className="grid gap-3">
       <p className="text-sm leading-relaxed text-mist" data-testid="start-hint">
         {ready ? 'Ready to start.' : 'Pick a workout to start'}
       </p>
-      <button
-        type="button"
-        data-testid="pick-new-workout"
-        aria-pressed={choice === 'new'}
-        className={cx(
-          'min-h-14 rounded-2xl border px-4 text-left text-lg font-semibold',
-          choice === 'new' ? 'border-amber bg-panel text-ambertext' : 'border-line bg-panel',
-        )}
-        onClick={() => setChoice('new')}
-      >
-        New workout
-      </button>
+      <label className="block text-sm font-medium text-mist">
+        Workout
+        <select
+          data-testid="workout-choice"
+          className="field mt-1 text-cream"
+          value={choice}
+          onChange={(event) => {
+            const next = event.target.value
+            setChoice(next)
+            if (next === 'new') window.setTimeout(() => nameInput.current?.focus(), 0)
+          }}
+        >
+          <option value="">Pick a workout</option>
+          <option value="new">New workout</option>
+          {sorted.map((routine) => (
+            <option key={routine.id} value={routine.id}>
+              {routine.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {choice === 'new' ? (
-        <label className="block text-sm font-medium text-mist">
+        <label className="block text-sm font-medium text-cream">
           Name
           <input
+            ref={nameInput}
             data-testid="new-workout-name"
-            className="field mt-1"
+            className="field mt-1 text-cream"
             value={name}
             maxLength={80}
+            autoFocus
+            autoComplete="off"
+            enterKeyHint="done"
+            inputMode="text"
+            readOnly={false}
+            disabled={false}
             onChange={(event) => setName(event.target.value)}
           />
         </label>
       ) : null}
-      {routines
-        .slice()
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((routine) => (
-          <button
-            key={routine.id}
-            type="button"
-            data-testid={`pick-routine-${routine.id}`}
-            aria-pressed={choice === routine.id}
-            className={cx(
-              'min-h-14 rounded-2xl border px-4 text-left text-lg font-semibold',
-              choice === routine.id ? 'border-amber bg-panel text-ambertext' : 'border-line bg-panel',
-            )}
-            onClick={() => setChoice(routine.id)}
-          >
-            {routine.name}
-          </button>
-        ))}
       <Button
         data-testid="start-empty"
         disabled={!ready}
         onClick={() => {
-          if (!ready || choice == null) return
+          if (!ready) return
           unlockAudio()
           if (choice === 'new') onEmpty(name.trim())
           else onRoutine(choice)
@@ -354,50 +355,6 @@ function ActiveWorkout({
           </Button>
         </>
       )}
-    </div>
-  )
-}
-
-function ExercisePicker({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
-  const { exercises } = useStore()
-  const [query, setQuery] = useState('')
-  const needle = query.trim().toLowerCase()
-  const list = exercises
-    .filter((exercise) => !exercise.archived && exercise.name.toLowerCase().includes(needle))
-    .sort((a, b) => a.name.localeCompare(b.name))
-  return (
-    <div data-testid="exercise-picker" className="grid gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Add a lift</h2>
-        <button type="button" className="min-h-12 px-2 font-semibold text-ambertext" onClick={onClose}>
-          Back
-        </button>
-      </div>
-      <input
-        data-testid="exercise-search"
-        className="field"
-        placeholder="Search lifts"
-        value={query}
-        autoComplete="off"
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <div className="grid gap-2">
-        {list.map((exercise) => (
-          <button
-            key={exercise.id}
-            type="button"
-            data-testid={`pick-${exercise.id}`}
-            aria-label={exercise.name}
-            onClick={() => onPick(exercise.id)}
-            className="min-h-14 rounded-2xl border border-line bg-panel px-4 py-2 text-left"
-          >
-            <span className="block font-semibold">{exercise.name}</span>
-            <span className="text-sm text-mist">
-              {equipmentLabel(exercise.equipment)} · {muscleLabel(exercise.primary)}
-            </span>
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

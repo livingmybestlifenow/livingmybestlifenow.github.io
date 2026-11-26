@@ -92,13 +92,13 @@ export async function storageUsageLabel(): Promise<string | null> {
 async function ensureSeed(): Promise<void> {
   const db = await openDb()
   const tx = db.transaction(['exercises', 'meta'], 'readwrite')
-  const meta = tx.objectStore('meta')
-  const seeded = await requestOf(meta.get('seeded'), 'The exercise library could not be prepared.')
-  if (!seeded) {
-    const exercises = tx.objectStore('exercises')
-    for (const exercise of STARTER_EXERCISES) exercises.put(exercise)
-    meta.put({ key: 'seeded', value: true })
+  const store = tx.objectStore('exercises')
+  const keys = await requestOf(store.getAllKeys(), 'The exercise library could not be prepared.')
+  const have = new Set((keys as IDBValidKey[]).map((key) => String(key)))
+  for (const exercise of STARTER_EXERCISES) {
+    if (!have.has(exercise.id)) store.put(exercise)
   }
+  tx.objectStore('meta').put({ key: 'seeded', value: true })
   await finish(tx, 'The exercise library could not be prepared.')
 }
 

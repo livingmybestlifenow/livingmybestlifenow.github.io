@@ -60,7 +60,7 @@ try {
   assert(manifest.icons.some((icon) => icon.purpose === 'maskable'), 'missing maskable icon')
 
   const context = await browser.newContext({
-    viewport: { width: 412, height: 915 },
+    viewport: { width: 360, height: 800 },
     isMobile: true,
     hasTouch: true,
     userAgent:
@@ -120,8 +120,16 @@ try {
   assert(await page.getByTestId('start-empty').isDisabled(), 'Start workout should wait for a choice')
   assert((await page.getByTestId('start-hint').innerText()).includes('Pick a workout to start'), 'missing start hint')
   await shot(page, 'pick-workout.png', page.getByTestId('start-hint'))
-  await page.getByTestId('pick-new-workout').click()
-  assert(!(await page.getByTestId('start-empty').isDisabled()), 'Start workout stayed disabled after a choice')
+  await page.getByTestId('workout-choice').selectOption('new')
+  const name = page.getByTestId('new-workout-name')
+  await name.waitFor()
+  await name.click()
+  assert(await name.evaluate((element) => document.activeElement === element), 'name field did not focus')
+  await page.keyboard.press('Control+A')
+  await page.keyboard.type('Legs day')
+  assert((await name.inputValue()) === 'Legs day', `typed name was ${await name.inputValue()}`)
+  assert(!(await page.getByTestId('start-empty').isDisabled()), 'Start workout stayed disabled after a name')
+  await shot(page, 'type-workout-name.png', name)
   await page.getByTestId('start-empty').click()
   await page.getByTestId('workout-timer').waitFor()
   await page.getByTestId('pause-workout').click()
@@ -136,6 +144,12 @@ try {
   await page.getByTestId('pause-workout').waitFor()
   await shot(page, 'workout-timer.png', page.getByTestId('workout-timer'))
   await page.getByTestId('add-exercise').click()
+  const search = page.getByTestId('exercise-search')
+  await search.click()
+  await page.keyboard.type('gob')
+  await page.getByTestId('pick-ex-goblet').waitFor()
+  await shot(page, 'exercise-search.png', page.getByTestId('exercise-matches'))
+  await search.fill('')
   await page.getByTestId('pick-ex-bench').click()
   await page.getByTestId('weight-plus').click()
   assert((await page.getByTestId('weight-value').inputValue()) === '2.5', 'plate plus did not step by 2.5')
@@ -181,7 +195,7 @@ try {
   await page.getByRole('button', { name: 'Edit Push day' }).waitFor()
 
   await page.getByRole('button', { name: 'Log', exact: true }).click()
-  await page.getByRole('button', { name: 'Push day', exact: true }).click()
+  await page.getByTestId('workout-choice').selectOption({ label: 'Push day' })
   await page.getByTestId('start-empty').click()
   await page.getByTestId('last-sets').waitFor()
   const recall = await page.getByTestId('last-sets').innerText()
@@ -208,7 +222,7 @@ try {
   await page.getByTestId('start-empty').waitFor()
 
   for (let extra = 0; extra < 2; extra += 1) {
-    await page.getByTestId('pick-new-workout').click()
+    await page.getByTestId('workout-choice').selectOption('new')
     await page.getByTestId('start-empty').click()
     await page.getByTestId('pick-ex-squat').click()
     await page.getByTestId('weight-value').fill('200')
@@ -281,16 +295,16 @@ try {
   await shot(page, 'reorder-exercises.png', page.getByTestId('workout-editor'))
   await page.getByRole('button', { name: 'All workouts' }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
-  await page.getByRole('button', { name: 'Edit Thursday' }).click()
-  await page.getByTestId('routine-name').fill('Thursday again')
+  await page.getByRole('button', { name: 'Edit Legs day' }).click()
+  await page.getByTestId('routine-name').fill('Legs day again')
   await page.getByRole('button', { name: 'Save template' }).click()
-  await page.getByRole('button', { name: 'Edit Thursday again' }).waitFor()
-  const templateCard = page.locator('li').filter({ has: page.getByRole('button', { name: 'Edit Thursday again' }) })
+  await page.getByRole('button', { name: 'Edit Legs day again' }).waitFor()
+  const templateCard = page.locator('li').filter({ has: page.getByRole('button', { name: 'Edit Legs day again' }) })
   await templateCard.getByRole('button', { name: 'Delete', exact: true }).click()
   await page.getByTestId('confirm-delete-template').click()
   await page.getByTestId('undo-toast').waitFor()
   await page.getByTestId('undo').click()
-  await page.getByRole('button', { name: 'Edit Thursday again' }).waitFor()
+  await page.getByRole('button', { name: 'Edit Legs day again' }).waitFor()
   await page.getByRole('button', { name: 'History', exact: true }).click()
   await page.getByText('Back squat').first().waitFor()
   await shot(page, 'template-kept-history.png', page.getByTestId('history-unlocked'))
@@ -334,6 +348,8 @@ try {
   await mkdir(ARTIFACTS, { recursive: true })
   for (const name of [
     'pick-workout.png',
+    'type-workout-name.png',
+    'exercise-search.png',
     'paused-workout.png',
     'workout-timer.png',
     'chime-panel.png',
