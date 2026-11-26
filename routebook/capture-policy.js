@@ -1,4 +1,4 @@
-// On-device photo and capture policy for Glovejot.
+// On-device photo and capture policy for GloveJot.
 // Mileage records stay in IndexedDB "routebook". Only photo fields are cleared.
 
 export const PHOTO_LONG_EDGE = 640;
