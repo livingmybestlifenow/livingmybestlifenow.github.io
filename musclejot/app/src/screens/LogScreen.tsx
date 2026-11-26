@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { formatClock, formatDay, formatNumber, parseReps, parseWeight, weekdayName } from '../format'
+import { useEffect, useRef, useState } from 'react'
+import { playChime, pulseVibrate, unlockAudio } from '../chime'
+import { formatClock, formatDay, formatDuration, formatNumber, parseReps, parseWeight, weekdayName } from '../format'
 import { InstallBanner } from '../install'
-import { e1rmInUnit, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit } from '../logic'
+import { e1rmInUnit, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
 import { useActiveWorkout, useStore } from '../store'
-import { equipmentLabel, muscleLabel, type Exercise } from '../types'
+import { REST_PRESETS, equipmentLabel, muscleLabel, type Exercise } from '../types'
 import { Button, Panel, Wordmark, cx } from '../ui'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -88,8 +89,14 @@ function StartList({ onEmpty, onRoutine }: { onEmpty: () => void; onRoutine: (id
   const { routines } = useStore()
   return (
     <div className="grid gap-3">
-      <Button data-testid="start-empty" onClick={onEmpty}>
-        Start empty workout
+      <Button
+        data-testid="start-empty"
+        onClick={() => {
+          unlockAudio()
+          onEmpty()
+        }}
+      >
+        Start workout
       </Button>
       {routines
         .slice()
@@ -127,8 +134,10 @@ function ActiveWorkout({
 }) {
   const store = useStore()
   const workout = useActiveWorkout()
+  const now = useVisibleNow(workout != null && workout.finishedAt == null)
   if (!workout) return null
   const active = workout
+  const elapsedSec = workoutDurationSec(active, now)
   const planned = active.plannedExerciseIds.filter((id) => store.exercises.some((exercise) => exercise.id === id))
   const exerciseId = selected && planned.includes(selected) ? selected : (planned[0] ?? null)
   const exercise = store.exercises.find((item) => item.id === exerciseId) ?? null
@@ -155,6 +164,10 @@ function ActiveWorkout({
           }}
         />
       </label>
+      <div className="rounded-3xl border border-line bg-panel px-4 py-3" data-testid="workout-timer">
+        <p className="text-sm text-mist">Workout</p>
+        <p className="font-mono text-4xl font-semibold">{formatDuration(elapsedSec)}</p>
+      </div>
       {picking ? (
         <ExercisePicker onPick={(id) => void addExercise(id)} onClose={() => onPickMode(false)} />
       ) : (
@@ -197,6 +210,7 @@ function ActiveWorkout({
               exercise={exercise}
               busy={busy}
               banner={banner}
+              now={now}
               onBanner={onBanner}
               onBusy={onBusy}
               onError={onError}
@@ -214,7 +228,7 @@ function ActiveWorkout({
               onBanner(null)
             }}
           >
-            Finish workout
+            End workout
           </Button>
         </>
       )}
@@ -270,6 +284,7 @@ function Logger({
   exercise,
   busy,
   banner,
+  now,
   onBanner,
   onBusy,
   onError,
@@ -277,6 +292,7 @@ function Logger({
   exercise: Exercise
   busy: boolean
   banner: { name: string; e1rm: number; previous: number | null } | null
+  now: number
   onBanner: (banner: { name: string; e1rm: number; previous: number | null } | null) => void
   onBusy: (busy: boolean) => void
   onError: (message: string | null) => void
@@ -309,9 +325,34 @@ function Logger({
     .sort((a, b) => a.order - b.order)
   const records = prSetIds(store.sets)
   const ends = workout?.restEndsAt ?? null
-  const ticking = ends != null && ends > Date.now()
-  const now = useVisibleNow(ticking)
   const remaining = ends != null ? Math.max(0, ends - now) : 0
+  const setStartedAt = workout?.setStartedAt ?? null
+  const setElapsed = setStartedAt ? Math.max(0, Math.round((now - setStartedAt) / 1000)) : (workout?.pendingSetSec ?? 0)
+  const chimed = useRef<number | null>(null)
+  const milestone = useRef<number | null>(null)
+  useEffect(() => {
+    if (!workout || !ends || now < ends) return
+    if (chimed.current === ends) return
+    chimed.current = ends
+    if (!store.settings.muted) playChime(store.settings.chime)
+    if (store.settings.vibrate) pulseVibrate()
+    void store.updateWorkout(workout.id, { restEndsAt: null })
+  }, [ends, now, store, workout])
+  useEffect(() => {
+    if (!setStartedAt || !store.settings.setMilestoneChime) {
+      milestone.current = null
+      return
+    }
+    const mark = Math.floor(setElapsed / 30)
+    if (milestone.current == null) {
+      milestone.current = mark
+      return
+    }
+    if (mark > milestone.current) {
+      milestone.current = mark
+      if (!store.settings.muted && mark > 0) playChime(store.settings.chime, true)
+    }
+  }, [setElapsed, setStartedAt, store.settings.chime, store.settings.muted, store.settings.setMilestoneChime])
 
   function bumpWeight(direction: 1 | -1) {
     const next = stepWeight(weight ?? 0, step, direction)
@@ -403,6 +444,59 @@ function Logger({
           </button>
         </div>
       ) : null}
+      {workout ? (
+        <div className="rounded-3xl border border-line bg-panel px-4 py-3" data-testid="set-timer">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-mist">Set</p>
+              <p className="font-mono text-4xl font-semibold">{formatDuration(setElapsed)}</p>
+            </div>
+            {setStartedAt ? (
+              <button
+                type="button"
+                data-testid="stop-set-timer"
+                className="min-h-14 rounded-2xl bg-amber px-5 text-lg font-semibold text-ink"
+                onClick={() => {
+                  unlockAudio()
+                  void store.stopSetTimer(workout.id)
+                }}
+              >
+                Stop set
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="start-set-timer"
+                className="min-h-14 rounded-2xl border border-line bg-panel2 px-5 text-lg font-semibold"
+                onClick={() => {
+                  unlockAudio()
+                  void store.startSetTimer(workout.id)
+                }}
+              >
+                Start set
+              </button>
+            )}
+          </div>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {REST_PRESETS.map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                data-testid={`rest-preset-${sec}`}
+                aria-pressed={store.settings.restSeconds === sec}
+                className={
+                  store.settings.restSeconds === sec
+                    ? 'min-h-12 rounded-2xl bg-amber font-semibold text-ink'
+                    : 'min-h-12 rounded-2xl border border-line font-semibold'
+                }
+                onClick={() => void store.saveSettings({ ...store.settings, restSeconds: sec })}
+              >
+                {sec}s
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
       <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_4.75rem] items-center gap-2">
         <IconStep label="Decrease weight" testId="weight-minus" onClick={() => bumpWeight(-1)} />
         <label className="block text-center text-sm text-mist">
@@ -452,6 +546,7 @@ function Logger({
               <li key={set.id} className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-panel px-3 py-2">
                 <span className="font-mono text-lg">
                   {index + 1}. {formatNumber(toUnit(set.weight, set.unit, unit))} {unit} × {set.reps}
+                  {set.durationSec != null ? ` · ${formatDuration(set.durationSec)}` : ''}
                 </span>
                 <span className="text-sm text-mist">
                   {e1rm == null ? '' : `${formatNumber(e1rm)} ${unit} e1RM`}

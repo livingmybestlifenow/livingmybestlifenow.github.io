@@ -48,6 +48,8 @@ type StoreValue = {
   finishWorkout: (id: string) => Promise<void>
   deleteWorkout: (id: string) => Promise<void>
   logSet: (input: { workoutId: string; exerciseId: string; weight: number; reps: number }) => Promise<LogResult>
+  startSetTimer: (workoutId: string) => Promise<void>
+  stopSetTimer: (workoutId: string) => Promise<void>
   deleteSet: (id: string) => Promise<void>
   saveExercise: (exercise: Exercise) => Promise<void>
   saveRoutine: (routine: Routine) => Promise<void>
@@ -134,6 +136,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           routineId: input.routineId,
           plannedExerciseIds: input.plannedExerciseIds,
           restEndsAt: null,
+          setStartedAt: null,
+          pendingSetSec: null,
           updatedAt: now,
         }
         await putWorkout(workout)
@@ -155,7 +159,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const finishWorkout = useCallback(
     (id: string) =>
       enqueue(async () => {
-        const next = await patchWorkout(id, { finishedAt: Date.now(), restEndsAt: null })
+        const next = await patchWorkout(id, { finishedAt: Date.now(), restEndsAt: null, setStartedAt: null, pendingSetSec: null })
         setWorkouts((current) => current.map((workout) => (workout.id === id ? next : workout)))
       }),
     [],
@@ -190,19 +194,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           reps: input.reps,
           createdAt: now,
           order,
+          durationSec: null,
         }
         const workout = workoutsRef.current.find((item) => item.id === input.workoutId)
+        if (workout?.setStartedAt) row.durationSec = Math.max(1, Math.round((now - workout.setStartedAt) / 1000))
+        else if (workout?.pendingSetSec) row.durationSec = workout.pendingSetSec
         const planned = workout?.plannedExerciseIds.includes(input.exerciseId)
           ? workout.plannedExerciseIds
           : [...(workout?.plannedExerciseIds ?? []), input.exerciseId]
-        const restEndsAt = currentSettings && currentSettings.restSeconds > 0 ? now + currentSettings.restSeconds * 1000 : null
-        const saved = await putSetAndWorkout(row, input.workoutId, { restEndsAt, plannedExerciseIds: planned })
+        const restEndsAt =
+          currentSettings?.restAutoStart && currentSettings.restSeconds > 0 ? now + currentSettings.restSeconds * 1000 : null
+        const saved = await putSetAndWorkout(row, input.workoutId, {
+          restEndsAt,
+          plannedExerciseIds: planned,
+          setStartedAt: null,
+          pendingSetSec: null,
+        })
         const nextSets = [...setsRef.current, row]
         setsRef.current = nextSets
         workoutsRef.current = workoutsRef.current.map((item) => (item.id === input.workoutId ? saved : item))
         setSets(nextSets)
         setWorkouts(workoutsRef.current)
         return { set: row, kind: judged.kind, e1rm: judged.e1rm, previous: judged.previous }
+      }),
+    [],
+  )
+
+  const rememberWorkout = (next: Workout) => {
+    workoutsRef.current = workoutsRef.current.map((item) => (item.id === next.id ? next : item))
+    setWorkouts(workoutsRef.current)
+  }
+
+  const startSetTimer = useCallback(
+    (id: string) =>
+      enqueue(async () => {
+        const next = await patchWorkout(id, { setStartedAt: Date.now(), pendingSetSec: null })
+        rememberWorkout(next)
+      }),
+    [],
+  )
+
+  const stopSetTimer = useCallback(
+    (id: string) =>
+      enqueue(async () => {
+        const workout = workoutsRef.current.find((item) => item.id === id)
+        if (!workout?.setStartedAt) return
+        const pendingSetSec = Math.max(1, Math.round((Date.now() - workout.setStartedAt) / 1000))
+        const current = settingsRef.current
+        const restEndsAt = current?.restAutoStart && current.restSeconds > 0 ? Date.now() + current.restSeconds * 1000 : null
+        const next = await patchWorkout(id, { setStartedAt: null, pendingSetSec, restEndsAt })
+        rememberWorkout(next)
       }),
     [],
   )
@@ -317,6 +358,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       plateStepKg: 2.5,
       dumbbellStepKg: 2.5,
       restSeconds: 90,
+      restAutoStart: true,
+      chime: 'bell',
+      muted: false,
+      vibrate: true,
+      setMilestoneChime: false,
       stallSessions: 4,
     },
     persistent,
@@ -330,6 +376,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     finishWorkout,
     deleteWorkout,
     logSet,
+    startSetTimer,
+    stopSetTimer,
     deleteSet,
     saveExercise,
     saveRoutine,

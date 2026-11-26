@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { formatDay, formatNumber } from '../format'
-import { e1rmInUnit, toUnit } from '../logic'
+import { formatDay, formatDuration, formatNumber } from '../format'
+import { activePercent, activeSeconds, e1rmInUnit, restSeconds, toUnit, workoutDurationSec } from '../logic'
 import { useStore } from '../store'
 import type { Workout } from '../types'
 import { Button, Panel } from '../ui'
@@ -30,6 +30,7 @@ export function HistoryScreen() {
           {ordered.map((workout) => {
             const rows = sets.filter((set) => set.workoutId === workout.id)
             const names = [...new Set(rows.map((set) => exercises.find((exercise) => exercise.id === set.exerciseId)?.name ?? 'Lift'))]
+            const timing = timeSummary(workout, rows)
             return (
               <button
                 key={workout.id}
@@ -46,6 +47,7 @@ export function HistoryScreen() {
                   {workout.finishedAt == null ? 'In progress · ' : ''}
                   {rows.length === 1 ? '1 set' : `${rows.length} sets`}
                   {names.length ? ` · ${names.join(', ')}` : ''}
+                  {timing ? ` · ${timing.total} · ${timing.percent}% active` : ''}
                 </span>
               </button>
             )
@@ -56,10 +58,24 @@ export function HistoryScreen() {
   )
 }
 
+function timeSummary(workout: Workout, rows: { durationSec: number | null }[]) {
+  const totalSec = workoutDurationSec(workout, Date.now())
+  const active = activeSeconds(rows)
+  const percent = activePercent(totalSec, active)
+  if (percent == null) return null
+  return {
+    total: formatDuration(totalSec),
+    active: formatDuration(active),
+    rest: formatDuration(restSeconds(totalSec, active)),
+    percent,
+  }
+}
+
 function WorkoutDetail({ workout, onBack }: { workout: Workout; onBack: () => void }) {
   const { sets, exercises, settings, deleteWorkout } = useStore()
   const [armed, setArmed] = useState(false)
   const rows = sets.filter((set) => set.workoutId === workout.id).sort((a, b) => a.order - b.order)
+  const timing = timeSummary(workout, rows)
   const groups = new Map<string, typeof rows>()
   for (const set of rows) {
     const list = groups.get(set.exerciseId) ?? []
@@ -74,6 +90,11 @@ function WorkoutDetail({ workout, onBack }: { workout: Workout; onBack: () => vo
       </button>
       <h2 className="text-2xl font-semibold">{workout.name}</h2>
       <p className="text-sm text-mist">{formatDay(workout.startedAt)}</p>
+      {timing ? (
+        <p className="text-sm leading-relaxed" data-testid="workout-time">
+          {timing.total} total · {timing.active} active · {timing.rest} rest · {timing.percent}% active
+        </p>
+      ) : null}
       {[...groups.entries()].map(([exerciseId, group]) => {
         const exercise = exercises.find((item) => item.id === exerciseId)
         return (
@@ -86,6 +107,7 @@ function WorkoutDetail({ workout, onBack }: { workout: Workout; onBack: () => vo
                   <li key={set.id} className="font-mono text-lg">
                     {index + 1}. {formatNumber(toUnit(set.weight, set.unit, settings.unit))} {settings.unit} × {set.reps}
                     {e1rm == null ? '' : ` · ${formatNumber(e1rm)} ${settings.unit} e1RM`}
+                    {set.durationSec != null ? ` · ${formatDuration(set.durationSec)}` : ''}
                   </li>
                 )
               })}

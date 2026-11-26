@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { formatDay, formatNumber, localDateKey } from '../format'
-import { isStalled, muscleCredit, prCount, sessionPeaks, trainingStreak, volumeBetween, weekRange } from '../logic'
+import { formatDay, formatDuration, formatNumber, localDateKey } from '../format'
+import { activeSeconds, isStalled, muscleCredit, prCount, sessionPeaks, trainingStreak, volumeBetween, weekRange } from '../logic'
 import { useStore } from '../store'
 import { SAFETY_REMINDER, muscleLabel } from '../types'
 import { Panel } from '../ui'
@@ -9,6 +9,7 @@ export function ProgressScreen() {
   const { exercises, workouts, sets, settings } = useStore()
   const range = weekRange(new Date())
   const volume = volumeBetween(sets, settings.unit, range.start, range.end)
+  const weekActive = activeSeconds(sets.filter((set) => set.createdAt >= range.start && set.createdAt < range.end))
   const streak = trainingStreak(
     sets.map((set) => localDateKey(set.createdAt)),
     new Date(),
@@ -34,10 +35,11 @@ export function ProgressScreen() {
         <h1 className="text-3xl font-semibold tracking-tight">Progress</h1>
         <p className="mt-1 text-sm leading-relaxed text-mist">Estimated 1RM uses Epley: weight × (1 + reps ÷ 30).</p>
       </header>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Stat testId="weekly-volume" label="This week" value={`${formatNumber(volume)} ${settings.unit}`} />
         <Stat testId="streak" label="Streak" value={streak === 1 ? '1 day' : `${streak} days`} />
         <Stat testId="pr-count" label="PRs" value={String(records)} />
+        <Stat testId="weekly-active" label="Active" value={formatDuration(weekActive)} />
       </div>
       <Panel>
         <h2 className="text-lg font-semibold">Muscle credit</h2>

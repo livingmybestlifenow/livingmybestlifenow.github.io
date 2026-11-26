@@ -11,8 +11,12 @@ import {
   previousSessionSets,
   sessionPeaks,
   stepFor,
+  activePercent,
+  activeSeconds,
+  restSeconds,
   stepWeight,
   toUnit,
+  workoutDurationSec,
   trainingStreak,
   volumeBetween,
   weekRange,
@@ -25,6 +29,7 @@ function set(partial: Partial<LiftSet> & Pick<LiftSet, 'id' | 'exerciseId' | 'we
     unit: partial.unit ?? 'lb',
     createdAt: partial.createdAt ?? 1,
     order: partial.order ?? 1,
+    durationSec: null,
     ...partial,
   }
 }
@@ -183,6 +188,8 @@ describe('csv', () => {
       routineId: null,
       plannedExerciseIds: [],
       restEndsAt: null,
+      setStartedAt: null,
+      pendingSetSec: null,
       updatedAt: 2,
     }
     const exercise: Exercise = {
@@ -218,6 +225,22 @@ describe('csv', () => {
     )
     expect(kilograms).toContain('45.4,kg,5')
     expect(kilograms).toContain('100,lb')
+  })
+})
+
+describe('session time', () => {
+  it('splits a workout into active time and the rest of the clock', () => {
+    const workout = { startedAt: 1_000, finishedAt: 301_000 }
+    expect(workoutDurationSec(workout, 999_000)).toBe(300)
+    const sets = [
+      set({ id: 'a', exerciseId: 'ex-bench', weight: 100, reps: 5, durationSec: 40 }),
+      set({ id: 'b', exerciseId: 'ex-bench', weight: 100, reps: 5, durationSec: 50 }),
+      set({ id: 'c', exerciseId: 'ex-bench', weight: 100, reps: 5, durationSec: null }),
+    ]
+    expect(activeSeconds(sets)).toBe(90)
+    expect(restSeconds(300, 90)).toBe(210)
+    expect(activePercent(300, 90)).toBe(30)
+    expect(activePercent(0, 0)).toBeNull()
   })
 })
 

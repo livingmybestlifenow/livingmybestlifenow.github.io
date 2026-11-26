@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { playChime, unlockAudio } from '../chime'
 import { csvFilename, setsToCsv } from '../csv'
 import { InstallCard, isIos } from '../install'
 import { cleanSettings } from '../logic'
 import { deliverFile } from '../share'
 import { useStore } from '../store'
-import { type Settings, type Unit } from '../types'
+import { CHIMES, REST_PRESETS, type ChimeId, type Settings, type Unit } from '../types'
 import { Button, Panel, SafetyPoints } from '../ui'
 
 export function MoreScreen() {
@@ -101,17 +102,85 @@ export function MoreScreen() {
             value={settings[dumbbellKey]}
             onChange={(value) => save({ [dumbbellKey]: value })}
           />
+          <div className="grid grid-cols-4 gap-2">
+            {REST_PRESETS.map((sec) => (
+              <button
+                key={sec}
+                type="button"
+                data-testid={`rest-preset-${sec}`}
+                aria-pressed={settings.restSeconds === sec}
+                className={
+                  settings.restSeconds === sec
+                    ? 'min-h-12 rounded-2xl bg-amber font-semibold text-ink'
+                    : 'min-h-12 rounded-2xl border border-line font-semibold'
+                }
+                onClick={() => save({ restSeconds: sec })}
+              >
+                {sec}s
+              </button>
+            ))}
+          </div>
           <NumberField
             testId="rest-seconds"
-            label="Rest seconds"
+            label="Custom rest seconds"
             value={settings.restSeconds}
             onChange={(value) => save({ restSeconds: value })}
+          />
+          <Toggle
+            testId="rest-autostart"
+            label="Start rest when a set is stopped or logged"
+            on={settings.restAutoStart}
+            onClick={() => save({ restAutoStart: !settings.restAutoStart })}
           />
           <NumberField
             testId="stall-sessions"
             label="Stall window (sessions)"
             value={settings.stallSessions}
             onChange={(value) => save({ stallSessions: value })}
+          />
+        </div>
+      </Panel>
+      <Panel>
+        <h2 className="text-lg font-semibold">Timer tone</h2>
+        <p className="mt-1 text-sm leading-relaxed text-mist">Soft chimes are made in the browser. Nothing is downloaded.</p>
+        <div className="mt-3 grid gap-3" data-testid="chime-panel">
+          <label className="block text-sm font-medium text-mist">
+            Chime
+            <select
+              data-testid="chime"
+              className="field mt-1"
+              value={settings.chime}
+              onChange={(event) => save({ chime: event.target.value as ChimeId })}
+            >
+              {CHIMES.map((chime) => (
+                <option key={chime.id} value={chime.id}>
+                  {chime.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            variant="secondary"
+            data-testid="chime-preview"
+            onClick={() => {
+              unlockAudio()
+              playChime(settings.chime)
+            }}
+          >
+            Preview chime
+          </Button>
+          <Toggle testId="mute" label="Mute timer chimes" on={settings.muted} onClick={() => save({ muted: !settings.muted })} />
+          <Toggle
+            testId="vibrate"
+            label="Vibrate when rest ends"
+            on={settings.vibrate}
+            onClick={() => save({ vibrate: !settings.vibrate })}
+          />
+          <Toggle
+            testId="set-milestones"
+            label="Quiet chime every 30 seconds of a set"
+            on={settings.setMilestoneChime}
+            onClick={() => save({ setMilestoneChime: !settings.setMilestoneChime })}
           />
         </div>
       </Panel>
@@ -189,6 +258,15 @@ export function MoreScreen() {
         )}
       </Panel>
     </div>
+  )
+}
+
+function Toggle({ testId, label, on, onClick }: { testId: string; label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button type="button" data-testid={testId} aria-pressed={on} onClick={onClick} className="flex min-h-12 items-center justify-between gap-3 text-left">
+      <span>{label}</span>
+      <span className={on ? 'font-semibold text-ambertext' : 'text-mist'}>{on ? 'On' : 'Off'}</span>
+    </button>
   )
 }
 

@@ -110,9 +110,15 @@ try {
   await page.getByTestId('stall-sessions').fill('3')
   await page.getByTestId('plate-step').waitFor()
   assert((await page.getByTestId('plate-step').inputValue()) === '2.5', 'plate step did not stick')
+  await page.getByTestId('chime-preview').click()
+  await page.getByTestId('chime').selectOption('soft')
+  assert((await page.getByTestId('rest-autostart').getAttribute('aria-pressed')) === 'true', 'rest should auto-start')
+  await shot(page, 'chime-panel.png', page.getByTestId('chime-panel'))
 
   await page.getByRole('button', { name: 'Log', exact: true }).click()
   await page.getByTestId('start-empty').click()
+  await page.getByTestId('workout-timer').waitFor()
+  await shot(page, 'workout-timer.png', page.getByTestId('workout-timer'))
   await page.getByTestId('pick-ex-bench').click()
   await page.getByTestId('weight-plus').click()
   assert((await page.getByTestId('weight-value').inputValue()) === '2.5', 'plate plus did not step by 2.5')
@@ -132,8 +138,14 @@ try {
   await page.getByTestId('weight-value').fill('100')
   await page.getByTestId('reps-value').fill('5')
   assert((await page.getByTestId('e1rm-preview').innerText()).includes('116.7'), 'e1RM preview')
+  await page.getByTestId('start-set-timer').click()
+  await page.getByTestId('stop-set-timer').waitFor()
+  await page.getByTestId('stop-set-timer').click()
+  await page.getByTestId('start-set-timer').waitFor()
   await page.getByTestId('log-set').click()
   await page.getByTestId('session-sets').getByText('100 lb × 5').waitFor()
+  await page.getByTestId('session-sets').getByText('0:01').waitFor()
+  await page.getByTestId('rest-timer').waitFor()
   await shot(page, 'log-workout.png', page.getByTestId('session-sets'))
 
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -220,6 +232,8 @@ try {
   assert(csv.includes('Bench press') && csv.includes('Back squat'), 'csv missing lifts')
   assert(csv.includes('100') && csv.includes('110') && csv.includes('200'), 'csv missing weights')
   assert(csv.includes('Seat 4, pin 8'), 'csv missing setup note')
+  assert(csv.includes('set_duration_sec') && csv.includes('workout_duration_sec'), 'csv missing duration columns')
+  assert(csv.includes('active_sec') && csv.includes('rest_sec'), 'csv missing active and rest columns')
   await page.getByTestId('export-status').waitFor()
   assert((await page.getByTestId('export-status').innerText()).includes(filename), 'export status')
   await shot(page, 'csv-export.png', page.getByTestId('export-status'))
@@ -228,6 +242,9 @@ try {
   await page.getByRole('button', { name: 'History', exact: true }).click()
   await page.getByRole('button', { name: /1 set · Bench press/ }).click()
   await page.getByText('45.4 kg').waitFor()
+  await page.getByTestId('workout-time').waitFor()
+  assert((await page.getByTestId('workout-time').innerText()).includes('% active'), await page.getByTestId('workout-time').innerText())
+  await shot(page, 'time-summary.png', page.getByTestId('workout-time'))
   await shot(page, 'weight-unit-kg.png', page.getByText('45.4 kg'))
   await page.getByRole('button', { name: 'All workouts' }).click()
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -269,6 +286,9 @@ try {
 
   await mkdir(ARTIFACTS, { recursive: true })
   for (const name of [
+    'workout-timer.png',
+    'chime-panel.png',
+    'time-summary.png',
     'safety-gate.png',
     'safety-more.png',
     'increment-steps.png',

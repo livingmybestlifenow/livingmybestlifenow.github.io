@@ -35,6 +35,17 @@ export type Equipment = (typeof EQUIPMENT)[number]
 
 export type Unit = 'lb' | 'kg'
 
+export const CHIMES = [
+  { id: 'bell', label: 'Bell' },
+  { id: 'soft', label: 'Soft' },
+  { id: 'ding', label: 'Ding' },
+  { id: 'glass', label: 'Glass' },
+] as const
+
+export type ChimeId = (typeof CHIMES)[number]['id']
+
+export const REST_PRESETS = [60, 90, 120, 180] as const
+
 export type Exercise = {
   id: string
   name: string
@@ -54,6 +65,8 @@ export type Workout = {
   routineId: string | null
   plannedExerciseIds: string[]
   restEndsAt: number | null
+  setStartedAt: number | null
+  pendingSetSec: number | null
   updatedAt: number
 }
 
@@ -66,6 +79,7 @@ export type LiftSet = {
   reps: number
   createdAt: number
   order: number
+  durationSec: number | null
 }
 
 export type Routine = {
@@ -89,6 +103,11 @@ export type Settings = {
   plateStepKg: number
   dumbbellStepKg: number
   restSeconds: number
+  restAutoStart: boolean
+  chime: ChimeId
+  muted: boolean
+  vibrate: boolean
+  setMilestoneChime: boolean
   stallSessions: number
 }
 
@@ -99,6 +118,11 @@ export const DEFAULT_SETTINGS: Settings = {
   plateStepKg: 2.5,
   dumbbellStepKg: 2.5,
   restSeconds: 90,
+  restAutoStart: true,
+  chime: 'bell',
+  muted: false,
+  vibrate: true,
+  setMilestoneChime: false,
   stallSessions: 4,
 }
 

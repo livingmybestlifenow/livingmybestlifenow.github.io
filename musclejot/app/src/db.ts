@@ -139,6 +139,8 @@ function normalizeWorkout(workout: Workout): Workout {
     routineId: workout.routineId ?? null,
     plannedExerciseIds: Array.isArray(workout.plannedExerciseIds) ? workout.plannedExerciseIds : [],
     restEndsAt: workout.restEndsAt ?? null,
+    setStartedAt: workout.setStartedAt ?? null,
+    pendingSetSec: workout.pendingSetSec ?? null,
     updatedAt: workout.updatedAt ?? workout.startedAt,
   }
 }
@@ -184,7 +186,7 @@ export async function loadAll(): Promise<Snapshot> {
   return {
     exercises: (exerciseRows as unknown[]).filter(isExercise).map(normalizeExercise),
     workouts: (workoutRows as unknown[]).filter(isWorkout).map(normalizeWorkout),
-    sets: (setRows as unknown[]).filter(isSet),
+    sets: (setRows as unknown[]).filter(isSet).map((row) => ({ ...row, durationSec: typeof row.durationSec === 'number' ? row.durationSec : null })),
     routines: (routineRows as Routine[]).filter((row) => row && typeof row.id === 'string'),
     notes: (noteRows as SetupNote[]).filter((row) => row && typeof row.exerciseId === 'string'),
     settings: cleanSettings(settingsValue),

@@ -101,7 +101,30 @@ export function cleanSettings(input: Partial<Settings> | null | undefined): Sett
   if (typeof input.stallSessions === 'number' && input.stallSessions >= 2 && input.stallSessions <= 12) {
     next.stallSessions = Math.round(input.stallSessions)
   }
+  if (input.restAutoStart === true || input.restAutoStart === false) next.restAutoStart = input.restAutoStart
+  if (input.chime === 'bell' || input.chime === 'soft' || input.chime === 'ding' || input.chime === 'glass') next.chime = input.chime
+  if (input.muted === true || input.muted === false) next.muted = input.muted
+  if (input.vibrate === true || input.vibrate === false) next.vibrate = input.vibrate
+  if (input.setMilestoneChime === true || input.setMilestoneChime === false) next.setMilestoneChime = input.setMilestoneChime
   return next
+}
+
+export function workoutDurationSec(workout: { startedAt: number; finishedAt: number | null }, now: number): number {
+  const end = workout.finishedAt ?? now
+  return Math.max(0, Math.round((end - workout.startedAt) / 1000))
+}
+
+export function activeSeconds(sets: { durationSec: number | null }[]): number {
+  return sets.reduce((sum, set) => sum + (typeof set.durationSec === 'number' && set.durationSec > 0 ? set.durationSec : 0), 0)
+}
+
+export function restSeconds(totalSec: number, active: number): number {
+  return Math.max(0, totalSec - active)
+}
+
+export function activePercent(totalSec: number, active: number): number | null {
+  if (!(totalSec > 0)) return null
+  return Math.min(100, Math.round((active / totalSec) * 100))
 }
 
 export type SessionPeak = { workoutId: string; at: number; e1rm: number }

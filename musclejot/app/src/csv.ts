@@ -1,5 +1,5 @@
 import { fileStamp, localStamp } from './format'
-import { e1rmInUnit, setVolume, toUnit } from './logic'
+import { activeSeconds, e1rmInUnit, restSeconds, setVolume, toUnit, workoutDurationSec } from './logic'
 import { equipmentLabel, muscleLabel, type Exercise, type LiftSet, type SetupNote, type Unit, type Workout } from './types'
 
 function cell(value: string): string {
@@ -36,13 +36,22 @@ export function setsToCsv(
     'exercise_id',
     'logged_weight',
     'logged_unit',
+    'set_duration_sec',
+    'workout_duration_sec',
+    'active_sec',
+    'rest_sec',
   ]
   const lines = [header.join(',')]
   const ordered = [...sets].sort((a, b) => a.createdAt - b.createdAt || a.order - b.order)
+  const exportedAt = Date.now()
   for (const set of ordered) {
     const exercise = exerciseById.get(set.exerciseId)
     const workout = workoutById.get(set.workoutId)
     const e1rm = e1rmInUnit(set.weight, set.unit, set.reps, displayUnit)
+    const workoutSets = sets.filter((row) => row.workoutId === set.workoutId)
+    const totalSec = workout ? workoutDurationSec(workout, exportedAt) : null
+    const active = activeSeconds(workoutSets)
+    const resting = totalSec == null ? null : restSeconds(totalSec, active)
     const weight = Math.round(toUnit(set.weight, set.unit, displayUnit) * 10) / 10
     lines.push(
       [
@@ -64,6 +73,10 @@ export function setsToCsv(
         set.exerciseId,
         String(set.weight),
         set.unit,
+        set.durationSec == null ? '' : String(set.durationSec),
+        totalSec == null ? '' : String(totalSec),
+        String(active),
+        resting == null ? '' : String(resting),
       ]
         .map(cell)
         .join(','),
