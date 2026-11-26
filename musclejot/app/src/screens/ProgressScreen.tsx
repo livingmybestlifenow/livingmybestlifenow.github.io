@@ -3,6 +3,7 @@ import { formatDay, formatDuration, formatNumber, localDateKey } from '../format
 import { activeSeconds, isStalled, muscleCredit, prCount, sessionPeaks, trainingStreak, volumeBetween, weekRange } from '../logic'
 import { useStore } from '../store'
 import { SAFETY_REMINDER, muscleLabel } from '../types'
+import { NativeSelect } from '../native-select'
 import { Panel } from '../ui'
 
 export function ProgressScreen() {
@@ -87,24 +88,18 @@ export function ProgressScreen() {
           <p className="mt-2 text-sm text-mist">Log a few workouts and the chart will show one point per session.</p>
         ) : (
           <>
-            <label className="mt-3 block text-sm font-medium text-mist">
-              Lift
-              <select
-                data-testid="chart-exercise"
-                className="field mt-1"
+            <div className="mt-3">
+              <NativeSelect
+                testId="chart-exercise"
+                label="Lift"
                 value={chartId}
-                onChange={(event) => setChosen(event.target.value)}
-              >
-                {withData
+                onChange={setChosen}
+                options={withData
                   .slice()
                   .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((exercise) => (
-                    <option key={exercise.id} value={exercise.id}>
-                      {exercise.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
+                  .map((exercise) => ({ value: exercise.id, label: exercise.name }))}
+              />
+            </div>
             <E1rmChart points={peaks.map((peak) => ({ label: formatDay(peak.at), y: peak.e1rm }))} unit={settings.unit} />
           </>
         )}

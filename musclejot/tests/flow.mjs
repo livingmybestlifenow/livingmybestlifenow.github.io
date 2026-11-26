@@ -6,7 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const require = createRequire(import.meta.url)
-const { chromium } = require('playwright-core')
+const { chromium, devices } = require('playwright-core')
 
 const PORT = 8791
 const ORIGIN = `http://127.0.0.1:${PORT}`
@@ -60,11 +60,8 @@ try {
   assert(manifest.icons.some((icon) => icon.purpose === 'maskable'), 'missing maskable icon')
 
   const context = await browser.newContext({
-    viewport: { width: 360, height: 800 },
-    isMobile: true,
-    hasTouch: true,
-    userAgent:
-      'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+    ...devices['Pixel 7'],
+    locale: 'en-US',
     serviceWorkers: 'allow',
     acceptDownloads: true,
   })
@@ -96,11 +93,17 @@ try {
   await page.getByTestId('app-ready').waitFor()
   assert((await page.getByTestId('safety-gate').count()) === 0, 'the safety screen showed again after it was acknowledged')
   assert(await page.evaluate(() => navigator.serviceWorker.controller != null), 'service worker is not controlling the page')
+  const swText = await (await fetch(`${ORIGIN}/musclejot/sw.js`)).text()
+  assert(swText.includes('sw-update.js'), 'service worker does not import the update script')
+  assert(swText.includes('skipWaiting'), 'service worker does not skip waiting')
+  const updateText = await (await fetch(`${ORIGIN}/musclejot/sw-update.js`)).text()
+  assert(updateText.includes('clients.claim') && updateText.includes('navigate'), 'update script does not reload open windows')
 
   await page.getByRole('button', { name: 'More', exact: true }).click()
   await page.getByTestId('safety-section').waitFor()
   await shot(page, 'safety-more.png', page.getByTestId('safety-section'))
   await page.getByText('Install app').waitFor()
+  assert((await page.getByTestId('build-label').innerText()).includes('Build '), 'missing build label')
   const unitSelect = page.getByTestId('weight-unit')
   assert((await unitSelect.inputValue()) === 'lb', 'weight unit should default to lb')
   const unitOptions = await unitSelect.locator('option').allTextContents()
@@ -119,13 +122,35 @@ try {
   await page.getByTestId('start-hint').waitFor()
   assert(await page.getByTestId('start-empty').isDisabled(), 'Start workout should wait for a choice')
   assert((await page.getByTestId('start-hint').innerText()).includes('Pick a workout to start'), 'missing start hint')
+  const choice = page.getByTestId('workout-choice')
+  const probe = await choice.evaluate((el) => {
+    const rect = el.getBoundingClientRect()
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    const style = getComputedStyle(el)
+    return {
+      hit: hit === el,
+      disabled: el.disabled,
+      label: Boolean(el.closest('label')),
+      font: parseFloat(style.fontSize),
+      options: [...el.options].map((option) => option.text),
+    }
+  })
+  assert(probe.hit, 'something is covering the workout select')
+  assert(!probe.disabled && !probe.label, 'workout select is disabled or wrapped in a label')
+  assert(probe.font >= 16, `workout select font ${probe.font}`)
+  assert(probe.options.includes('New workout'), `options ${probe.options.join(',')}`)
   await shot(page, 'pick-workout.png', page.getByTestId('start-hint'))
-  await page.getByTestId('workout-choice').selectOption('new')
+  await choice.tap()
+  await page.getByTestId('workout-choice-menu').waitFor()
+  await shot(page, 'workout-menu.png', page.getByTestId('workout-choice-menu'))
+  await page.getByTestId('workout-choice-option-new').tap()
   const name = page.getByTestId('new-workout-name')
   await name.waitFor()
-  await name.click()
+  const nameSize = await name.evaluate((element) => parseFloat(getComputedStyle(element).fontSize))
+  assert(nameSize >= 16, `name font ${nameSize}`)
+  await name.tap()
   assert(await name.evaluate((element) => document.activeElement === element), 'name field did not focus')
-  await page.keyboard.press('Control+A')
+  await name.evaluate((element) => element.select())
   await page.keyboard.type('Legs day')
   assert((await name.inputValue()) === 'Legs day', `typed name was ${await name.inputValue()}`)
   assert(!(await page.getByTestId('start-empty').isDisabled()), 'Start workout stayed disabled after a name')
@@ -348,6 +373,7 @@ try {
   await mkdir(ARTIFACTS, { recursive: true })
   for (const name of [
     'pick-workout.png',
+    'workout-menu.png',
     'type-workout-name.png',
     'exercise-search.png',
     'paused-workout.png',

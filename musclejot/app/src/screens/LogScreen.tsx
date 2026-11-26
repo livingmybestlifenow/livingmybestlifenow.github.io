@@ -4,6 +4,7 @@ import { formatClock, formatDay, formatDuration, formatNumber, parseReps, parseW
 import { InstallBanner } from '../install'
 import { e1rmInUnit, moveItem, pausedSeconds, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
 import { ExercisePicker } from '../exercise-picker'
+import { NativeSelect } from '../native-select'
 import { useActiveWorkout, useStore } from '../store'
 import { REST_PRESETS, equipmentLabel, muscleLabel, type Exercise } from '../types'
 import { Button, Panel, Wordmark, cx } from '../ui'
@@ -93,36 +94,33 @@ function StartList({ onEmpty, onRoutine }: { onEmpty: (name: string) => void; on
   const nameInput = useRef<HTMLInputElement>(null)
   const sorted = routines.slice().sort((a, b) => a.name.localeCompare(b.name))
   const ready = choice === 'new' ? name.trim().length > 0 : choice.length > 0
+  function choose(next: string) {
+    setChoice(next)
+    if (next === 'new') window.setTimeout(() => nameInput.current?.focus(), 0)
+  }
   return (
     <div className="grid gap-3">
       <p className="text-sm leading-relaxed text-mist" data-testid="start-hint">
         {ready ? 'Ready to start.' : 'Pick a workout to start'}
       </p>
-      <label className="block text-sm font-medium text-mist">
-        Workout
-        <select
-          data-testid="workout-choice"
-          className="field mt-1 text-cream"
-          value={choice}
-          onChange={(event) => {
-            const next = event.target.value
-            setChoice(next)
-            if (next === 'new') window.setTimeout(() => nameInput.current?.focus(), 0)
-          }}
-        >
-          <option value="">Pick a workout</option>
-          <option value="new">New workout</option>
-          {sorted.map((routine) => (
-            <option key={routine.id} value={routine.id}>
-              {routine.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <NativeSelect
+        testId="workout-choice"
+        label="Workout"
+        value={choice}
+        onChange={choose}
+        options={[
+          { value: '', label: 'Pick a workout' },
+          { value: 'new', label: 'New workout' },
+          ...sorted.map((routine) => ({ value: routine.id, label: routine.name })),
+        ]}
+      />
       {choice === 'new' ? (
-        <label className="block text-sm font-medium text-cream">
-          Name
+        <div>
+          <label htmlFor="new-workout-name" className="block text-sm font-medium text-cream">
+            Name
+          </label>
           <input
+            id="new-workout-name"
             ref={nameInput}
             data-testid="new-workout-name"
             className="field mt-1 text-cream"
@@ -136,7 +134,7 @@ function StartList({ onEmpty, onRoutine }: { onEmpty: (name: string) => void; on
             disabled={false}
             onChange={(event) => setName(event.target.value)}
           />
-        </label>
+        </div>
       ) : null}
       <Button
         data-testid="start-empty"

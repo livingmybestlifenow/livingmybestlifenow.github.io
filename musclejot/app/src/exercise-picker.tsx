@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { NativeSelect } from './native-select'
 import { useStore } from './store'
 import { MUSCLE_LABEL, equipmentLabel, muscleLabel, type Equipment, type Exercise, type Muscle } from './types'
 
@@ -46,18 +47,16 @@ export function ExercisePicker({ onPick, onClose }: { onPick: (id: string) => vo
         </div>
       ) : (
         <>
-          <label className="block text-sm font-medium text-mist">
-            Browse
-            <select
-              data-testid="browse-by"
-              className="field mt-1 text-cream"
-              value={browse}
-              onChange={(event) => setBrowse(event.target.value === 'equipment' ? 'equipment' : 'muscle')}
-            >
-              <option value="muscle">Muscle</option>
-              <option value="equipment">Equipment</option>
-            </select>
-          </label>
+          <NativeSelect
+            testId="browse-by"
+            label="Browse"
+            value={browse}
+            onChange={(next) => setBrowse(next === 'equipment' ? 'equipment' : 'muscle')}
+            options={[
+              { value: 'muscle', label: 'Muscle' },
+              { value: 'equipment', label: 'Equipment' },
+            ]}
+          />
           {groups.map((group) => (
             <section key={group.id} className="grid gap-2">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-mist">{group.label}</h3>

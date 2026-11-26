@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { moveItem } from '../logic'
 import { useStore } from '../store'
 import { EQUIPMENT, MUSCLES, equipmentLabel, muscleLabel, type Equipment, type Exercise, type Muscle, type Routine } from '../types'
+import { NativeSelect } from '../native-select'
 import { Button, Panel } from '../ui'
 
 export function LibraryScreen() {
@@ -169,26 +170,20 @@ function ExerciseForm({ initial, onDone }: { initial?: Exercise; onDone: () => v
         Name
         <input data-testid="exercise-name" className="field mt-1" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
       </label>
-      <label className="text-sm font-medium text-mist">
-        Equipment
-        <select className="field mt-1" value={equipment} onChange={(event) => setEquipment(event.target.value as Equipment)}>
-          {EQUIPMENT.map((item) => (
-            <option key={item} value={item}>
-              {equipmentLabel(item)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="text-sm font-medium text-mist">
-        Primary muscle
-        <select className="field mt-1" value={primary} onChange={(event) => setPrimary(event.target.value as Muscle)}>
-          {MUSCLES.map((item) => (
-            <option key={item} value={item}>
-              {muscleLabel(item)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <NativeSelect
+        testId="exercise-equipment"
+        label="Equipment"
+        value={equipment}
+        onChange={(next) => setEquipment(next as Equipment)}
+        options={EQUIPMENT.map((item) => ({ value: item, label: equipmentLabel(item) }))}
+      />
+      <NativeSelect
+        testId="exercise-primary"
+        label="Primary muscle"
+        value={primary}
+        onChange={(next) => setPrimary(next as Muscle)}
+        options={MUSCLES.map((item) => ({ value: item, label: muscleLabel(item) }))}
+      />
       <fieldset>
         <legend className="text-sm font-medium text-mist">Secondary muscles</legend>
         <div className="mt-2 flex flex-wrap gap-2">
