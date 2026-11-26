@@ -16,6 +16,7 @@ import {
   restSeconds,
   stepWeight,
   toUnit,
+  pausedSeconds,
   workoutDurationSec,
   trainingStreak,
   volumeBetween,
@@ -190,6 +191,8 @@ describe('csv', () => {
       restEndsAt: null,
       setStartedAt: null,
       pendingSetSec: null,
+      pausedAt: null,
+      pausedMs: 0,
       updatedAt: 2,
     }
     const exercise: Exercise = {
@@ -232,6 +235,12 @@ describe('session time', () => {
   it('splits a workout into active time and the rest of the clock', () => {
     const workout = { startedAt: 1_000, finishedAt: 301_000 }
     expect(workoutDurationSec(workout, 999_000)).toBe(300)
+    const paused = { startedAt: 0, finishedAt: 100_000, pausedMs: 40_000, pausedAt: null }
+    expect(workoutDurationSec(paused, 100_000)).toBe(60)
+    expect(pausedSeconds(paused, 100_000)).toBe(40)
+    const openPause = { startedAt: 0, finishedAt: null, pausedMs: 0, pausedAt: 50_000 }
+    expect(workoutDurationSec(openPause, 50_000)).toBe(50)
+    expect(pausedSeconds(openPause, 80_000)).toBe(30)
     const sets = [
       set({ id: 'a', exerciseId: 'ex-bench', weight: 100, reps: 5, durationSec: 40 }),
       set({ id: 'b', exerciseId: 'ex-bench', weight: 100, reps: 5, durationSec: 50 }),

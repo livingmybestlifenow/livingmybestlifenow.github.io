@@ -67,6 +67,8 @@ export type Workout = {
   restEndsAt: number | null
   setStartedAt: number | null
   pendingSetSec: number | null
+  pausedAt: number | null
+  pausedMs: number
   updatedAt: number
 }
 

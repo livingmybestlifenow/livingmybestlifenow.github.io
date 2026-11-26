@@ -1,5 +1,5 @@
 import { fileStamp, localStamp } from './format'
-import { activeSeconds, e1rmInUnit, restSeconds, setVolume, toUnit, workoutDurationSec } from './logic'
+import { activeSeconds, e1rmInUnit, pausedSeconds, restSeconds, setVolume, toUnit, workoutDurationSec } from './logic'
 import { equipmentLabel, muscleLabel, type Exercise, type LiftSet, type SetupNote, type Unit, type Workout } from './types'
 
 function cell(value: string): string {
@@ -40,6 +40,7 @@ export function setsToCsv(
     'workout_duration_sec',
     'active_sec',
     'rest_sec',
+    'paused_sec',
   ]
   const lines = [header.join(',')]
   const ordered = [...sets].sort((a, b) => a.createdAt - b.createdAt || a.order - b.order)
@@ -52,6 +53,7 @@ export function setsToCsv(
     const totalSec = workout ? workoutDurationSec(workout, exportedAt) : null
     const active = activeSeconds(workoutSets)
     const resting = totalSec == null ? null : restSeconds(totalSec, active)
+    const paused = workout ? pausedSeconds(workout, exportedAt) : null
     const weight = Math.round(toUnit(set.weight, set.unit, displayUnit) * 10) / 10
     lines.push(
       [
@@ -77,6 +79,7 @@ export function setsToCsv(
         totalSec == null ? '' : String(totalSec),
         String(active),
         resting == null ? '' : String(resting),
+        paused == null ? '' : String(paused),
       ]
         .map(cell)
         .join(','),

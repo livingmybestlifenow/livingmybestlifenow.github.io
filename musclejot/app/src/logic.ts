@@ -127,9 +127,27 @@ export function moveItem(ids: string[], index: number, direction: -1 | 1): strin
   return next
 }
 
-export function workoutDurationSec(workout: { startedAt: number; finishedAt: number | null }, now: number): number {
+type ClockWorkout = {
+  startedAt: number
+  finishedAt: number | null
+  pausedMs?: number
+  pausedAt?: number | null
+}
+
+function pausedMsAt(workout: ClockWorkout, now: number): number {
+  const stored = workout.pausedMs ?? 0
+  if (workout.pausedAt == null) return stored
   const end = workout.finishedAt ?? now
-  return Math.max(0, Math.round((end - workout.startedAt) / 1000))
+  return stored + Math.max(0, end - workout.pausedAt)
+}
+
+export function pausedSeconds(workout: ClockWorkout, now: number): number {
+  return Math.max(0, Math.round(pausedMsAt(workout, now) / 1000))
+}
+
+export function workoutDurationSec(workout: ClockWorkout, now: number): number {
+  const end = workout.finishedAt ?? now
+  return Math.max(0, Math.round((end - workout.startedAt - pausedMsAt(workout, now)) / 1000))
 }
 
 export function activeSeconds(sets: { durationSec: number | null }[]): number {
