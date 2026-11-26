@@ -109,6 +109,24 @@ export function cleanSettings(input: Partial<Settings> | null | undefined): Sett
   return next
 }
 
+export function exerciseOrder(planned: string[], sets: { exerciseId: string; order: number }[]): string[] {
+  const ordered = [...planned]
+  const sorted = [...sets].sort((a, b) => a.order - b.order)
+  for (const set of sorted) {
+    if (!ordered.includes(set.exerciseId)) ordered.push(set.exerciseId)
+  }
+  return ordered
+}
+
+export function moveItem(ids: string[], index: number, direction: -1 | 1): string[] {
+  const target = index + direction
+  if (target < 0 || target >= ids.length) return ids
+  const next = ids.slice()
+  const [item] = next.splice(index, 1)
+  next.splice(target, 0, item)
+  return next
+}
+
 export function workoutDurationSec(workout: { startedAt: number; finishedAt: number | null }, now: number): number {
   const end = workout.finishedAt ?? now
   return Math.max(0, Math.round((end - workout.startedAt) / 1000))

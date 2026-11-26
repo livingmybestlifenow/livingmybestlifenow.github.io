@@ -1,19 +1,24 @@
 import { useState } from 'react'
+import { moveItem } from '../logic'
 import { useStore } from '../store'
-import { EQUIPMENT, MUSCLES, equipmentLabel, muscleLabel, type Equipment, type Muscle } from '../types'
+import { EQUIPMENT, MUSCLES, equipmentLabel, muscleLabel, type Equipment, type Exercise, type Muscle, type Routine } from '../types'
 import { Button, Panel } from '../ui'
 
 export function LibraryScreen() {
-  const { exercises, sets, routines, saveExercise, deleteRoutine } = useStore()
+  const { exercises, routines, deleteRoutine, deleteExercise } = useStore()
   const [showExercise, setShowExercise] = useState(false)
   const [showRoutine, setShowRoutine] = useState(false)
+  const [editExercise, setEditExercise] = useState<Exercise | null>(null)
+  const [editRoutine, setEditRoutine] = useState<Routine | null>(null)
+  const [dropExercise, setDropExercise] = useState<string | null>(null)
+  const [dropRoutine, setDropRoutine] = useState<string | null>(null)
 
   return (
     <div className="mx-auto grid max-w-xl gap-4">
       <header className="pt-1">
         <h1 className="text-3xl font-semibold tracking-tight">Library</h1>
         <p className="mt-1 text-sm leading-relaxed text-mist">
-          Custom lifts and routines stay on this device. Credit follows each lift’s primary and secondary tags.
+          Custom lifts and templates stay on this device. Deleting a template leaves logged workouts alone.
         </p>
       </header>
       <Panel>
@@ -24,6 +29,12 @@ export function LibraryScreen() {
           </button>
         </div>
         {showExercise ? <ExerciseForm onDone={() => setShowExercise(false)} /> : null}
+        {editExercise ? (
+          <ExerciseForm
+            initial={editExercise}
+            onDone={() => setEditExercise(null)}
+          />
+        ) : null}
         <ul className="mt-3 grid gap-2">
           {exercises
             .filter((exercise) => !exercise.archived)
@@ -37,13 +48,32 @@ export function LibraryScreen() {
                   {exercise.secondary.length ? ` · also ${exercise.secondary.map(muscleLabel).join(', ')}` : ''}
                 </p>
                 {exercise.custom ? (
-                  <button
-                    type="button"
-                    className="mt-1 min-h-12 text-sm font-semibold text-mist"
-                    onClick={() => void saveExercise({ ...exercise, archived: true })}
-                  >
-                    {sets.some((set) => set.exerciseId === exercise.id) ? 'Archive' : 'Remove'}
-                  </button>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <button type="button" className="min-h-12 font-semibold text-ambertext" onClick={() => setEditExercise(exercise)}>
+                      Edit {exercise.name}
+                    </button>
+                    {dropExercise === exercise.id ? (
+                      <>
+                        <button
+                          type="button"
+                          data-testid="confirm-delete-exercise"
+                          className="min-h-12 font-semibold text-bad"
+                          onClick={() => {
+                            void deleteExercise(exercise.id).then(() => setDropExercise(null))
+                          }}
+                        >
+                          Delete exercise
+                        </button>
+                        <button type="button" className="min-h-12 font-semibold text-mist" onClick={() => setDropExercise(null)}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="min-h-12 font-semibold text-mist" onClick={() => setDropExercise(exercise.id)}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
                 ) : null}
               </li>
             ))}
@@ -51,12 +81,13 @@ export function LibraryScreen() {
       </Panel>
       <Panel>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Routines</h2>
+          <h2 className="text-lg font-semibold">Templates</h2>
           <button type="button" data-testid="new-routine" className="min-h-12 font-semibold text-ambertext" onClick={() => setShowRoutine((open) => !open)}>
-            {showRoutine ? 'Close' : 'New routine'}
+            {showRoutine ? 'Close' : 'New template'}
           </button>
         </div>
         {showRoutine ? <RoutineForm onDone={() => setShowRoutine(false)} /> : null}
+        {editRoutine ? <RoutineForm initial={editRoutine} onDone={() => setEditRoutine(null)} /> : null}
         <ul className="mt-3 grid gap-2">
           {routines.length === 0 ? <li className="text-sm text-mist">No routines yet.</li> : null}
           {routines
@@ -70,9 +101,37 @@ export function LibraryScreen() {
                     .map((id) => exercises.find((exercise) => exercise.id === id)?.name ?? 'Lift')
                     .join(', ')}
                 </p>
-                <button type="button" className="mt-1 min-h-12 text-sm font-semibold text-mist" onClick={() => void deleteRoutine(routine.id)}>
-                  Delete routine
-                </button>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="min-h-12 font-semibold text-ambertext"
+                    onClick={() => setEditRoutine(routine)}
+                  >
+                    Edit {routine.name}
+                  </button>
+                  {dropRoutine === routine.id ? (
+                    <>
+                      <p className="w-full text-sm text-mist">Delete this template? Workouts you already logged stay.</p>
+                      <button
+                        type="button"
+                        data-testid="confirm-delete-template"
+                        className="min-h-12 font-semibold text-bad"
+                        onClick={() => {
+                          void deleteRoutine(routine.id).then(() => setDropRoutine(null))
+                        }}
+                      >
+                        Delete template
+                      </button>
+                      <button type="button" className="min-h-12 font-semibold text-mist" onClick={() => setDropRoutine(null)}>
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="min-h-12 font-semibold text-mist" onClick={() => setDropRoutine(routine.id)}>
+                      Delete
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
         </ul>
@@ -81,25 +140,25 @@ export function LibraryScreen() {
   )
 }
 
-function ExerciseForm({ onDone }: { onDone: () => void }) {
+function ExerciseForm({ initial, onDone }: { initial?: Exercise; onDone: () => void }) {
   const { saveExercise } = useStore()
-  const [name, setName] = useState('')
-  const [equipment, setEquipment] = useState<Equipment>('barbell')
-  const [primary, setPrimary] = useState<Muscle>('chest')
-  const [secondary, setSecondary] = useState<Muscle[]>([])
+  const [name, setName] = useState(initial?.name ?? '')
+  const [equipment, setEquipment] = useState<Equipment>(initial?.equipment ?? 'barbell')
+  const [primary, setPrimary] = useState<Muscle>(initial?.primary ?? 'chest')
+  const [secondary, setSecondary] = useState<Muscle[]>(initial?.secondary ?? [])
 
   async function save() {
     const trimmed = name.trim()
     if (!trimmed) return
     await saveExercise({
-      id: crypto.randomUUID(),
+      id: initial?.id ?? crypto.randomUUID(),
       name: trimmed.slice(0, 80),
       equipment,
       primary,
       secondary: secondary.filter((muscle) => muscle !== primary),
       custom: true,
       archived: false,
-      createdAt: Date.now(),
+      createdAt: initial?.createdAt ?? Date.now(),
     })
     onDone()
   }
@@ -108,7 +167,7 @@ function ExerciseForm({ onDone }: { onDone: () => void }) {
     <div className="mt-3 grid gap-3">
       <label className="text-sm font-medium text-mist">
         Name
-        <input className="field mt-1" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+        <input data-testid="exercise-name" className="field mt-1" value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
       </label>
       <label className="text-sm font-medium text-mist">
         Equipment
@@ -156,10 +215,10 @@ function ExerciseForm({ onDone }: { onDone: () => void }) {
   )
 }
 
-function RoutineForm({ onDone }: { onDone: () => void }) {
+function RoutineForm({ initial, onDone }: { initial?: Routine; onDone: () => void }) {
   const { exercises, saveRoutine } = useStore()
-  const [name, setName] = useState('')
-  const [ids, setIds] = useState<string[]>([])
+  const [name, setName] = useState(initial?.name ?? '')
+  const [ids, setIds] = useState<string[]>(initial?.exerciseIds ?? [])
   const choices = exercises.filter((exercise) => !exercise.archived).slice().sort((a, b) => a.name.localeCompare(b.name))
 
   async function save() {
@@ -167,13 +226,17 @@ function RoutineForm({ onDone }: { onDone: () => void }) {
     if (!trimmed || ids.length === 0) return
     const now = Date.now()
     await saveRoutine({
-      id: crypto.randomUUID(),
+      id: initial?.id ?? crypto.randomUUID(),
       name: trimmed.slice(0, 80),
       exerciseIds: ids,
-      createdAt: now,
+      createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     })
     onDone()
+  }
+
+  function move(index: number, direction: -1 | 1) {
+    setIds((current) => moveItem(current, index, direction))
   }
 
   return (
@@ -188,6 +251,23 @@ function RoutineForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => setName(event.target.value)}
         />
       </label>
+      {ids.length > 0 ? (
+        <ol className="grid gap-1 text-sm">
+          {ids.map((id, index) => (
+            <li key={id} className="flex items-center justify-between gap-2">
+              <span>{exercises.find((exercise) => exercise.id === id)?.name ?? 'Lift'}</span>
+              <span>
+                <button type="button" className="min-h-12 px-2" onClick={() => move(index, -1)}>
+                  Up
+                </button>
+                <button type="button" className="min-h-12 px-2" onClick={() => move(index, 1)}>
+                  Down
+                </button>
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
       <div className="grid gap-2">
         {choices.map((exercise) => {
           const on = ids.includes(exercise.id)
@@ -206,7 +286,7 @@ function RoutineForm({ onDone }: { onDone: () => void }) {
         })}
       </div>
       <Button data-testid="save-routine" onClick={() => void save()} disabled={!name.trim() || ids.length === 0}>
-        Save routine
+        {initial ? 'Save template' : 'Save routine'}
       </Button>
     </div>
   )

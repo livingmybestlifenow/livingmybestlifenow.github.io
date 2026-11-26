@@ -27,7 +27,7 @@ export function App() {
 }
 
 function Shell() {
-  const { ready, error, safetyAckAt, acknowledgeSafety } = useStore()
+  const { ready, error, safetyAckAt, acknowledgeSafety, undo, runUndo } = useStore()
   const [tab, setTab] = useState<Tab>('log')
   const [ackError, setAckError] = useState<string | null>(null)
   if (!ready) {
@@ -102,6 +102,18 @@ function Shell() {
           {SAFETY_FOOTER}
         </p>
       </main>
+      {undo ? (
+        <div
+          className="fixed inset-x-4 bottom-24 z-30 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-amber/50 bg-panel px-4 py-3 shadow-lg md:bottom-6"
+          data-testid="undo-toast"
+          role="status"
+        >
+          <p>{undo.label}</p>
+          <button type="button" data-testid="undo" className="min-h-12 font-semibold text-ambertext" onClick={() => void runUndo()}>
+            Undo
+          </button>
+        </div>
+      ) : null}
       <nav className="tabbar" aria-label="Primary">
         {TABS.map((item) => (
           <TabButton key={item.id} active={tab === item.id} label={item.label} onClick={() => setTab(item.id)} />

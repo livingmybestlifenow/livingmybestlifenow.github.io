@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createContext, useContext } from 'react'
 import {
   deleteEverything,
+  deleteExercise as deleteExerciseRow,
   deleteRoutine as deleteRoutineRow,
   deleteSet as deleteSetRow,
   deleteWorkout as deleteWorkoutRow,
@@ -11,6 +12,7 @@ import {
   putExercise,
   putNote,
   putRoutine,
+  putSet,
   putSetAndWorkout,
   putSettings,
   putWorkout,
@@ -47,6 +49,13 @@ type StoreValue = {
   updateWorkout: (id: string, patch: Partial<Workout>) => Promise<void>
   finishWorkout: (id: string) => Promise<void>
   deleteWorkout: (id: string) => Promise<void>
+  updateSet: (set: LiftSet) => Promise<void>
+  addSet: (input: { workoutId: string; exerciseId: string; weight: number; reps: number; durationSec: number | null }) => Promise<void>
+  saveTemplate: (workoutId: string) => Promise<Routine>
+  deleteExercise: (id: string) => Promise<void>
+  removeExerciseFromWorkout: (workoutId: string, exerciseId: string) => Promise<void>
+  undo: { id: string; label: string } | null
+  runUndo: () => Promise<void>
   logSet: (input: { workoutId: string; exerciseId: string; weight: number; reps: number }) => Promise<LogResult>
   startSetTimer: (workoutId: string) => Promise<void>
   stopSetTimer: (workoutId: string) => Promise<void>
@@ -75,13 +84,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [usageLabel, setUsageLabel] = useState<string | null>(null)
   const [lastExportAt, setExported] = useState<number | null>(null)
   const [safetyAckAt, setSafetyAck] = useState<number | null>(null)
+  const [undo, setUndo] = useState<{ id: string; label: string; restore: () => Promise<void> } | null>(null)
   const queue = useRef(Promise.resolve())
+  const undoTimer = useRef(0)
+  const undoRef = useRef(undo)
   const setsRef = useRef(sets)
   const workoutsRef = useRef(workouts)
   const settingsRef = useRef(settings)
+  const exercisesRef = useRef(exercises)
+  const routinesRef = useRef(routines)
   setsRef.current = sets
   workoutsRef.current = workouts
   settingsRef.current = settings
+  exercisesRef.current = exercises
+  routinesRef.current = routines
+  undoRef.current = undo
+
+  const armUndo = useCallback((label: string, restore: () => Promise<void>) => {
+    window.clearTimeout(undoTimer.current)
+    const offer = { id: crypto.randomUUID(), label, restore }
+    undoRef.current = offer
+    setUndo(offer)
+    undoTimer.current = window.setTimeout(() => {
+      setUndo((current) => (current?.id === offer.id ? null : current))
+      if (undoRef.current?.id === offer.id) undoRef.current = null
+    }, 8000)
+  }, [])
 
   const apply = useCallback((snapshot: Awaited<ReturnType<typeof loadAll>>) => {
     setExercises(snapshot.exercises)
@@ -168,11 +196,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deleteWorkout = useCallback(
     (id: string) =>
       enqueue(async () => {
+        const workout = workoutsRef.current.find((item) => item.id === id)
+        const rows = setsRef.current.filter((row) => row.workoutId === id)
+        if (!workout) return
         await deleteWorkoutRow(id)
-        setWorkouts((current) => current.filter((workout) => workout.id !== id))
-        setSets((current) => current.filter((row) => row.workoutId !== id))
+        workoutsRef.current = workoutsRef.current.filter((item) => item.id !== id)
+        setsRef.current = setsRef.current.filter((row) => row.workoutId !== id)
+        setWorkouts(workoutsRef.current)
+        setSets(setsRef.current)
+        armUndo('Workout deleted', async () => {
+          await putWorkout(workout)
+          for (const row of rows) await putSet(row)
+          workoutsRef.current = [workout, ...workoutsRef.current.filter((item) => item.id !== workout.id)]
+          setsRef.current = [...setsRef.current, ...rows]
+          setWorkouts(workoutsRef.current)
+          setSets(setsRef.current)
+        })
       }),
-    [],
+    [armUndo],
   )
 
   const logSet = useCallback(
@@ -251,10 +292,141 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deleteSet = useCallback(
     (id: string) =>
       enqueue(async () => {
+        const row = setsRef.current.find((item) => item.id === id)
+        if (!row) return
         await deleteSetRow(id)
-        setSets((current) => current.filter((row) => row.id !== id))
+        setsRef.current = setsRef.current.filter((item) => item.id !== id)
+        setSets(setsRef.current)
+        armUndo('Set deleted', async () => {
+          await putSet(row)
+          setsRef.current = [...setsRef.current, row]
+          setSets(setsRef.current)
+        })
+      }),
+    [armUndo],
+  )
+
+  const updateSet = useCallback(
+    (next: LiftSet) =>
+      enqueue(async () => {
+        await putSet(next)
+        setsRef.current = setsRef.current.map((row) => (row.id === next.id ? next : row))
+        setSets(setsRef.current)
       }),
     [],
+  )
+
+  const addSet = useCallback(
+    (input: { workoutId: string; exerciseId: string; weight: number; reps: number; durationSec: number | null }) =>
+      enqueue(async () => {
+        const unit = settingsRef.current?.unit ?? 'lb'
+        const now = Date.now()
+        const row: LiftSet = {
+          id: crypto.randomUUID(),
+          workoutId: input.workoutId,
+          exerciseId: input.exerciseId,
+          weight: input.weight,
+          unit,
+          reps: input.reps,
+          durationSec: input.durationSec,
+          createdAt: now,
+          order: setsRef.current.filter((item) => item.workoutId === input.workoutId).length + 1,
+        }
+        const workout = workoutsRef.current.find((item) => item.id === input.workoutId)
+        const planned = workout?.plannedExerciseIds.includes(input.exerciseId)
+          ? workout.plannedExerciseIds
+          : [...(workout?.plannedExerciseIds ?? []), input.exerciseId]
+        const saved = await putSetAndWorkout(row, input.workoutId, { plannedExerciseIds: planned })
+        setsRef.current = [...setsRef.current, row]
+        workoutsRef.current = workoutsRef.current.map((item) => (item.id === input.workoutId ? saved : item))
+        setSets(setsRef.current)
+        setWorkouts(workoutsRef.current)
+      }),
+    [],
+  )
+
+  const saveTemplate = useCallback(
+    (workoutId: string) =>
+      enqueue(async () => {
+        const workout = workoutsRef.current.find((item) => item.id === workoutId)
+        if (!workout) throw new Error('That workout is not on this device.')
+        const seen: string[] = []
+        for (const row of setsRef.current
+          .filter((item) => item.workoutId === workoutId)
+          .sort((a, b) => a.order - b.order)) {
+          if (!seen.includes(row.exerciseId)) seen.push(row.exerciseId)
+        }
+        const exerciseIds = [...workout.plannedExerciseIds]
+        for (const id of seen) if (!exerciseIds.includes(id)) exerciseIds.push(id)
+        const now = Date.now()
+        const routine: Routine = {
+          id: crypto.randomUUID(),
+          name: workout.name.trim().slice(0, 80) || 'Template',
+          exerciseIds,
+          createdAt: now,
+          updatedAt: now,
+        }
+        await putRoutine(routine)
+        routinesRef.current = [routine, ...routinesRef.current]
+        setRoutines(routinesRef.current)
+        return routine
+      }),
+    [],
+  )
+
+  const removeExerciseFromWorkout = useCallback(
+    (workoutId: string, exerciseId: string) =>
+      enqueue(async () => {
+        const workout = workoutsRef.current.find((item) => item.id === workoutId)
+        if (!workout) return
+        const rows = setsRef.current.filter((row) => row.workoutId === workoutId && row.exerciseId === exerciseId)
+        for (const row of rows) await deleteSetRow(row.id)
+        const planned = workout.plannedExerciseIds.filter((id) => id !== exerciseId)
+        const next = await patchWorkout(workoutId, { plannedExerciseIds: planned })
+        setsRef.current = setsRef.current.filter((row) => !(row.workoutId === workoutId && row.exerciseId === exerciseId))
+        workoutsRef.current = workoutsRef.current.map((item) => (item.id === workoutId ? next : item))
+        setSets(setsRef.current)
+        setWorkouts(workoutsRef.current)
+        armUndo('Lift removed', async () => {
+          for (const row of rows) await putSet(row)
+          await putWorkout(workout)
+          setsRef.current = [...setsRef.current, ...rows]
+          const exists = workoutsRef.current.some((item) => item.id === workout.id)
+          workoutsRef.current = exists
+            ? workoutsRef.current.map((item) => (item.id === workout.id ? workout : item))
+            : [workout, ...workoutsRef.current]
+          setSets(setsRef.current)
+          setWorkouts(workoutsRef.current)
+        })
+      }),
+    [armUndo],
+  )
+
+  const deleteExercise = useCallback(
+    (id: string) =>
+      enqueue(async () => {
+        const exercise = exercisesRef.current.find((item) => item.id === id)
+        if (!exercise) return
+        const used = setsRef.current.some((row) => row.exerciseId === id)
+        if (used) {
+          const archived = { ...exercise, archived: true }
+          await putExercise(archived)
+          exercisesRef.current = exercisesRef.current.map((item) => (item.id === id ? archived : item))
+        } else {
+          await deleteExerciseRow(id)
+          exercisesRef.current = exercisesRef.current.filter((item) => item.id !== id)
+        }
+        setExercises(exercisesRef.current)
+        armUndo('Exercise deleted', async () => {
+          await putExercise(exercise)
+          const exists = exercisesRef.current.some((item) => item.id === exercise.id)
+          exercisesRef.current = exists
+            ? exercisesRef.current.map((item) => (item.id === exercise.id ? exercise : item))
+            : [exercise, ...exercisesRef.current]
+          setExercises(exercisesRef.current)
+        })
+      }),
+    [armUndo],
   )
 
   const saveExercise = useCallback(
@@ -284,8 +456,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deleteRoutine = useCallback(
     (id: string) =>
       enqueue(async () => {
+        const routine = routinesRef.current.find((item) => item.id === id)
+        if (!routine) return
         await deleteRoutineRow(id)
-        setRoutines((current) => current.filter((routine) => routine.id !== id))
+        routinesRef.current = routinesRef.current.filter((item) => item.id !== id)
+        setRoutines(routinesRef.current)
+        armUndo('Template deleted', async () => {
+          await putRoutine(routine)
+          routinesRef.current = [routine, ...routinesRef.current.filter((item) => item.id !== routine.id)]
+          setRoutines(routinesRef.current)
+        })
+      }),
+    [armUndo],
+  )
+
+  const runUndo = useCallback(
+    () =>
+      enqueue(async () => {
+        const current = undoRef.current
+        if (!current) return
+        window.clearTimeout(undoTimer.current)
+        undoRef.current = null
+        setUndo(null)
+        await current.restore()
       }),
     [],
   )
@@ -375,6 +568,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateWorkout,
     finishWorkout,
     deleteWorkout,
+    updateSet,
+    addSet,
+    saveTemplate,
+    deleteExercise,
+    removeExerciseFromWorkout,
+    undo: undo ? { id: undo.id, label: undo.label } : null,
+    runUndo,
     logSet,
     startSetTimer,
     stopSetTimer,

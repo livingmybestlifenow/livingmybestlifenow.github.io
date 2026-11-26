@@ -248,6 +248,20 @@ export async function putSetAndWorkout(set: LiftSet, workoutId: string, patch: P
   return next
 }
 
+export async function putSet(set: LiftSet): Promise<void> {
+  const db = await openDb()
+  const tx = db.transaction('sets', 'readwrite')
+  tx.objectStore('sets').put(set)
+  await finish(tx, 'The set could not be saved.')
+}
+
+export async function deleteExercise(id: string): Promise<void> {
+  const db = await openDb()
+  const tx = db.transaction('exercises', 'readwrite')
+  tx.objectStore('exercises').delete(id)
+  await finish(tx, 'The exercise could not be deleted.')
+}
+
 export async function deleteSet(id: string): Promise<void> {
   const db = await openDb()
   const tx = db.transaction('sets', 'readwrite')

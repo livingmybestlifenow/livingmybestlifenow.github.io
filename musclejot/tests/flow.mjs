@@ -161,7 +161,7 @@ try {
   await page.getByTestId('routine-name').fill('Push day')
   await page.getByTestId('routine-toggle-ex-bench').click()
   await page.getByTestId('save-routine').click()
-  await page.getByText('Push day').waitFor()
+  await page.getByRole('button', { name: 'Edit Push day' }).waitFor()
 
   await page.getByRole('button', { name: 'Log', exact: true }).click()
   await page.getByRole('button', { name: 'Start Push day' }).click()
@@ -246,7 +246,35 @@ try {
   assert((await page.getByTestId('workout-time').innerText()).includes('% active'), await page.getByTestId('workout-time').innerText())
   await shot(page, 'time-summary.png', page.getByTestId('workout-time'))
   await shot(page, 'weight-unit-kg.png', page.getByText('45.4 kg'))
+  await page.getByTestId('edit-set').click()
+  await page.getByTestId('set-duration').fill('30')
+  await page.getByTestId('save-set').click()
+  await page.locator('.font-mono').filter({ hasText: '0:30' }).waitFor()
+  await page.getByTestId('save-template').click()
+  await page.getByTestId('template-saved').waitFor()
+  await shot(page, 'edit-set.png', page.getByTestId('workout-editor'))
   await page.getByRole('button', { name: 'All workouts' }).click()
+  await page.getByRole('button', { name: /2 sets/ }).click()
+  await page.getByTestId('move-up-ex-squat').click()
+  await page.waitForFunction(() => document.querySelector('[data-testid="move-up-ex-squat"]')?.hasAttribute('disabled'))
+  const firstLift = await page.getByTestId('workout-editor').getByRole('heading').first().innerText()
+  assert(firstLift === 'Back squat', `expected Back squat first, saw ${firstLift}`)
+  await shot(page, 'reorder-exercises.png', page.getByTestId('workout-editor'))
+  await page.getByRole('button', { name: 'All workouts' }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit Thursday' }).click()
+  await page.getByTestId('routine-name').fill('Thursday again')
+  await page.getByRole('button', { name: 'Save template' }).click()
+  await page.getByRole('button', { name: 'Edit Thursday again' }).waitFor()
+  const templateCard = page.locator('li').filter({ has: page.getByRole('button', { name: 'Edit Thursday again' }) })
+  await templateCard.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByTestId('confirm-delete-template').click()
+  await page.getByTestId('undo-toast').waitFor()
+  await page.getByTestId('undo').click()
+  await page.getByRole('button', { name: 'Edit Thursday again' }).waitFor()
+  await page.getByRole('button', { name: 'History', exact: true }).click()
+  await page.getByText('Back squat').first().waitFor()
+  await shot(page, 'template-kept-history.png', page.getByTestId('history-unlocked'))
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.getByTestId('app-ready').waitFor()
   await page.getByRole('button', { name: 'More', exact: true }).click()
@@ -289,6 +317,8 @@ try {
     'workout-timer.png',
     'chime-panel.png',
     'time-summary.png',
+    'edit-set.png',
+    'reorder-exercises.png',
     'safety-gate.png',
     'safety-more.png',
     'increment-steps.png',

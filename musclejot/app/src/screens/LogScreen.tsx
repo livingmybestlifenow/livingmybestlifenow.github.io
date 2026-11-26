@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { playChime, pulseVibrate, unlockAudio } from '../chime'
 import { formatClock, formatDay, formatDuration, formatNumber, parseReps, parseWeight, weekdayName } from '../format'
 import { InstallBanner } from '../install'
-import { e1rmInUnit, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
+import { e1rmInUnit, moveItem, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
 import { useActiveWorkout, useStore } from '../store'
 import { REST_PRESETS, equipmentLabel, muscleLabel, type Exercise } from '../types'
 import { Button, Panel, Wordmark, cx } from '../ui'
@@ -220,6 +220,54 @@ function ActiveWorkout({
               <p className="text-mist">Add a lift, then log weight and reps. Each set is saved immediately.</p>
             </Panel>
           )}
+          <Button
+            variant="secondary"
+            data-testid="save-template-live"
+            onClick={() => {
+              void store.saveTemplate(active.id)
+            }}
+          >
+            Save as template
+          </Button>
+          {exerciseId ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="min-h-12 flex-1 rounded-2xl border border-line font-semibold disabled:opacity-40"
+                disabled={planned.indexOf(exerciseId) <= 0}
+                onClick={() =>
+                  void store.updateWorkout(active.id, {
+                    plannedExerciseIds: moveItem(planned, planned.indexOf(exerciseId), -1),
+                  })
+                }
+              >
+                Move up
+              </button>
+              <button
+                type="button"
+                className="min-h-12 flex-1 rounded-2xl border border-line font-semibold disabled:opacity-40"
+                disabled={planned.indexOf(exerciseId) === planned.length - 1}
+                onClick={() =>
+                  void store.updateWorkout(active.id, {
+                    plannedExerciseIds: moveItem(planned, planned.indexOf(exerciseId), 1),
+                  })
+                }
+              >
+                Move down
+              </button>
+              <button
+                type="button"
+                className="min-h-12 flex-1 rounded-2xl border border-line font-semibold"
+                onClick={() => {
+                  const hasSets = store.sets.some((set) => set.workoutId === active.id && set.exerciseId === exerciseId)
+                  if (hasSets && !window.confirm('Remove this lift and its sets from this workout?')) return
+                  void store.removeExerciseFromWorkout(active.id, exerciseId)
+                }}
+              >
+                Remove lift
+              </button>
+            </div>
+          ) : null}
           <Button
             variant="secondary"
             data-testid="finish-workout"
