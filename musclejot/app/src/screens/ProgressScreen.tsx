@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { formatDay, formatNumber, localDateKey } from '../format'
 import { isStalled, muscleCredit, prCount, sessionPeaks, trainingStreak, volumeBetween, weekRange } from '../logic'
 import { useStore } from '../store'
-import { muscleLabel } from '../types'
+import { SAFETY_REMINDER, muscleLabel } from '../types'
 import { Panel } from '../ui'
 
 export function ProgressScreen() {
@@ -60,7 +60,7 @@ export function ProgressScreen() {
         <h2 className="text-lg font-semibold">Stall radar</h2>
         <p className="mt-1 text-sm leading-relaxed text-mist">
           A lift is listed when its estimated 1RM is not higher across the last {settings.stallSessions} sessions. This is a
-          record of the numbers, not a suggestion.
+          record of the numbers, not a suggestion. {SAFETY_REMINDER}
         </p>
         {flagged.length === 0 ? (
           <p className="mt-3 text-sm text-mist" data-testid="stall-empty">

@@ -7,6 +7,7 @@ import {
   deleteWorkout as deleteWorkoutRow,
   loadAll,
   patchWorkout,
+  setSafetyAckAt,
   putExercise,
   putNote,
   putRoutine,
@@ -39,7 +40,9 @@ type StoreValue = {
   persistent: boolean | null
   usageLabel: string | null
   lastExportAt: number | null
+  safetyAckAt: number | null
   reload: () => Promise<void>
+  acknowledgeSafety: () => Promise<void>
   startWorkout: (input: { name: string; routineId: string | null; plannedExerciseIds: string[] }) => Promise<Workout>
   updateWorkout: (id: string, patch: Partial<Workout>) => Promise<void>
   finishWorkout: (id: string) => Promise<void>
@@ -69,6 +72,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [persistent, setPersistent] = useState<boolean | null>(null)
   const [usageLabel, setUsageLabel] = useState<string | null>(null)
   const [lastExportAt, setExported] = useState<number | null>(null)
+  const [safetyAckAt, setSafetyAck] = useState<number | null>(null)
   const queue = useRef(Promise.resolve())
   const setsRef = useRef(sets)
   const workoutsRef = useRef(workouts)
@@ -85,6 +89,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setNotes(snapshot.notes)
     setSettings(snapshot.settings)
     setExported(snapshot.lastExportAt)
+    setSafetyAck(snapshot.safetyAckAt)
   }, [])
 
   const reload = useCallback(async () => {
@@ -268,6 +273,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const acknowledgeSafety = useCallback(
+    () =>
+      enqueue(async () => {
+        const now = Date.now()
+        await setSafetyAckAt(now)
+        setSafetyAck(now)
+      }),
+    [],
+  )
+
   const markExported = useCallback(
     () =>
       enqueue(async () => {
@@ -307,7 +322,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     persistent,
     usageLabel,
     lastExportAt,
+    safetyAckAt,
     reload,
+    acknowledgeSafety,
     startWorkout,
     updateWorkout,
     finishWorkout,

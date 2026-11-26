@@ -5,7 +5,8 @@ import { LogScreen } from './screens/LogScreen'
 import { MoreScreen } from './screens/MoreScreen'
 import { ProgressScreen } from './screens/ProgressScreen'
 import { StoreProvider, useStore } from './store'
-import { Wordmark } from './ui'
+import { SAFETY_FOOTER } from './types'
+import { Button, SafetyPoints, Wordmark } from './ui'
 
 type Tab = 'log' | 'history' | 'progress' | 'library' | 'more'
 
@@ -26,8 +27,9 @@ export function App() {
 }
 
 function Shell() {
-  const { ready, error } = useStore()
+  const { ready, error, safetyAckAt, acknowledgeSafety } = useStore()
   const [tab, setTab] = useState<Tab>('log')
+  const [ackError, setAckError] = useState<string | null>(null)
   if (!ready) {
     return <p className="px-4 pt-8 text-mist">Opening the log on this device…</p>
   }
@@ -36,6 +38,36 @@ function Shell() {
       <p className="px-4 pt-8 text-bad" role="alert">
         {error}
       </p>
+    )
+  }
+  if (!safetyAckAt) {
+    return (
+      <div className="mx-auto min-h-dvh max-w-xl px-4 pt-8 pb-10" data-testid="app-ready">
+        <div data-testid="safety-gate">
+          <Wordmark className="text-3xl" />
+          <h1 className="mt-6 text-3xl font-semibold tracking-tight">Before you log</h1>
+          <div className="mt-4">
+            <SafetyPoints />
+          </div>
+          {ackError ? (
+            <p className="mt-4 text-bad" role="alert">
+              {ackError}
+            </p>
+          ) : null}
+          <div className="mt-6">
+            <Button
+              data-testid="safety-ack"
+              onClick={() => {
+                void acknowledgeSafety().catch((caught: unknown) => {
+                  setAckError(caught instanceof Error ? caught.message : 'The note could not be saved on this device.')
+                })
+              }}
+            >
+              I understand
+            </Button>
+          </div>
+        </div>
+      </div>
     )
   }
   return (
@@ -66,6 +98,9 @@ function Shell() {
         {tab === 'progress' ? <ProgressScreen /> : null}
         {tab === 'library' ? <LibraryScreen /> : null}
         {tab === 'more' ? <MoreScreen /> : null}
+        <p className="mx-auto mt-8 max-w-xl text-sm leading-relaxed text-faint" data-testid="safety-footer">
+          {SAFETY_FOOTER}
+        </p>
       </main>
       <nav className="tabbar" aria-label="Primary">
         {TABS.map((item) => (

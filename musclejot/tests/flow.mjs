@@ -82,15 +82,24 @@ try {
 
   await page.goto(`${ORIGIN}/musclejot/`, { waitUntil: 'domcontentloaded' })
   await page.getByTestId('app-ready').waitFor({ timeout: 15000 })
-  await page.getByTestId('disclaimer').waitFor()
+  await page.getByTestId('safety-gate').waitFor()
+  assert((await page.getByTestId('start-empty').count()) === 0, 'logging was available before the safety note')
+  await page.getByText('not medical, injury, or diet advice').waitFor()
+  await page.getByText('use a spotter').waitFor()
+  await page.screenshot({ path: path.join(SHOTS, 'safety-gate.png'), fullPage: true })
+  await page.getByRole('button', { name: 'I understand' }).click()
+  await page.getByTestId('safety-gate').waitFor({ state: 'hidden' })
   const mark = await page.locator('h1 img').getAttribute('src')
   assert(mark && mark.includes('/musclejot/favicon.svg'), `wordmark icon ${mark}`)
   await page.evaluate(() => navigator.serviceWorker.ready)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.getByTestId('app-ready').waitFor()
+  assert((await page.getByTestId('safety-gate').count()) === 0, 'the safety screen showed again after it was acknowledged')
   assert(await page.evaluate(() => navigator.serviceWorker.controller != null), 'service worker is not controlling the page')
 
   await page.getByRole('button', { name: 'More', exact: true }).click()
+  await page.getByTestId('safety-section').waitFor()
+  await shot(page, 'safety-more.png', page.getByTestId('safety-section'))
   await page.getByText('Install app').waitFor()
   const unitSelect = page.getByTestId('weight-unit')
   assert((await unitSelect.inputValue()) === 'lb', 'weight unit should default to lb')
@@ -154,6 +163,7 @@ try {
   await page.getByTestId('log-set').click()
   await page.getByTestId('pr-banner').waitFor()
   const banner = await page.getByTestId('pr-banner').innerText()
+  assert(banner.includes('Never push through pain'), 'PR reminder missing')
   assert(banner.includes('128.3'), `PR banner missing e1RM: ${banner}`)
   assert(banner.includes('116.7'), `PR banner missing previous e1RM: ${banner}`)
   await shot(page, 'pr-e1rm.png', page.getByTestId('pr-banner'))
@@ -181,6 +191,8 @@ try {
   await page.getByRole('button', { name: 'Progress', exact: true }).click()
   await page.getByTestId('stall-flag').filter({ hasText: 'Back squat' }).waitFor()
   const stall = await page.getByTestId('stall-flag').innerText()
+  const stallNote = await page.getByText('Never push through pain').first().innerText()
+  assert(stallNote.includes('Never push through pain'), stallNote)
   assert(/not a suggestion|record of the numbers/i.test(stall) || stall.includes('No estimated 1RM increase'), stall)
   assert(!(/deload|you should|add weight/i.test(stall)), stall)
   await shot(page, 'stall-flag.png', page.getByTestId('stall-flag'))
@@ -248,6 +260,7 @@ try {
   const desktop = await desk.newPage()
   await desktop.goto(`${ORIGIN}/musclejot/`, { waitUntil: 'domcontentloaded' })
   await desktop.getByTestId('app-ready').waitFor()
+  await desktop.getByRole('button', { name: 'I understand' }).click()
   await desktop.getByRole('navigation', { name: 'Primary' }).getByRole('button', { name: 'Log', exact: true }).waitFor()
   const deskMark = await desktop.locator('aside img').getAttribute('src')
   assert(deskMark && deskMark.includes('favicon.svg'), 'desktop wordmark missing the icon')
@@ -256,6 +269,8 @@ try {
 
   await mkdir(ARTIFACTS, { recursive: true })
   for (const name of [
+    'safety-gate.png',
+    'safety-more.png',
     'increment-steps.png',
     'log-workout.png',
     'last-set-recall.png',

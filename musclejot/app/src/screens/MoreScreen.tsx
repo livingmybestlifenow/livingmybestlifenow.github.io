@@ -4,8 +4,8 @@ import { InstallCard, isIos } from '../install'
 import { cleanSettings } from '../logic'
 import { deliverFile } from '../share'
 import { useStore } from '../store'
-import { DISCLAIMER, type Settings, type Unit } from '../types'
-import { Button, Panel } from '../ui'
+import { type Settings, type Unit } from '../types'
+import { Button, Panel, SafetyPoints } from '../ui'
 
 export function MoreScreen() {
   const store = useStore()
@@ -148,7 +148,12 @@ export function MoreScreen() {
         </div>
       </Panel>
       <InstallCard />
-      <p className="text-sm leading-relaxed text-faint">{DISCLAIMER}</p>
+      <Panel>
+        <h2 className="text-lg font-semibold">Safety</h2>
+        <div className="mt-3 text-sm" data-testid="safety-section">
+          <SafetyPoints />
+        </div>
+      </Panel>
       <Panel>
         <h2 className="text-lg font-semibold">Delete everything</h2>
         <p className="mt-1 text-sm leading-relaxed text-mist">This removes workouts, sets, routines, and custom exercises from this device.</p>

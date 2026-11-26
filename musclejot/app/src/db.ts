@@ -110,6 +110,7 @@ export type Snapshot = {
   notes: SetupNote[]
   settings: Settings
   lastExportAt: number | null
+  safetyAckAt: number | null
 }
 
 function isExercise(value: unknown): value is Exercise {
@@ -163,7 +164,8 @@ export async function loadAll(): Promise<Snapshot> {
   const notes = requestOf(tx.objectStore('notes').getAll(), 'The setup notes could not be read.')
   const settingsRow = requestOf(tx.objectStore('meta').get('settings'), 'Settings could not be read.')
   const exportRow = requestOf(tx.objectStore('meta').get('lastExportAt'), 'Export history could not be read.')
-  const [exerciseRows, workoutRows, setRows, routineRows, noteRows, settings, exported] = await Promise.all([
+  const safetyRow = requestOf(tx.objectStore('meta').get('safetyAckAt'), 'The safety note could not be read.')
+  const [exerciseRows, workoutRows, setRows, routineRows, noteRows, settings, exported, safety] = await Promise.all([
     exercises,
     workouts,
     sets,
@@ -171,12 +173,14 @@ export async function loadAll(): Promise<Snapshot> {
     notes,
     settingsRow,
     exportRow,
+    safetyRow,
   ])
   await finish(tx, 'The workout log could not be read.')
   const settingsValue =
     settings && typeof settings === 'object' && 'value' in settings ? (settings as { value?: Partial<Settings> }).value : null
   const exportValue =
     exported && typeof exported === 'object' && 'value' in exported ? (exported as { value?: number }).value : null
+  const safetyValue = safety && typeof safety === 'object' && 'value' in safety ? (safety as { value?: number }).value : null
   return {
     exercises: (exerciseRows as unknown[]).filter(isExercise).map(normalizeExercise),
     workouts: (workoutRows as unknown[]).filter(isWorkout).map(normalizeWorkout),
@@ -185,6 +189,7 @@ export async function loadAll(): Promise<Snapshot> {
     notes: (noteRows as SetupNote[]).filter((row) => row && typeof row.exerciseId === 'string'),
     settings: cleanSettings(settingsValue),
     lastExportAt: typeof exportValue === 'number' ? exportValue : null,
+    safetyAckAt: typeof safetyValue === 'number' ? safetyValue : null,
   }
 }
 
@@ -270,6 +275,13 @@ export async function putSettings(settings: Settings): Promise<void> {
   const tx = db.transaction('meta', 'readwrite')
   tx.objectStore('meta').put({ key: 'settings', value: cleanSettings(settings) })
   await finish(tx, 'Settings could not be saved.')
+}
+
+export async function setSafetyAckAt(value = Date.now()): Promise<void> {
+  const db = await openDb()
+  const tx = db.transaction('meta', 'readwrite')
+  tx.objectStore('meta').put({ key: 'safetyAckAt', value })
+  await finish(tx, 'The safety note could not be saved.')
 }
 
 export async function setLastExportAt(value = Date.now()): Promise<void> {

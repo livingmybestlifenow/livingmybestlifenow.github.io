@@ -1,7 +1,17 @@
 export const APP_NAME = 'MuscleJot'
 
-export const DISCLAIMER =
-  'MuscleJot is a training log, not coaching. Consult a qualified professional before starting a program. No medical, injury, or diet advice.'
+export const SAFETY_FOOTER =
+  'A workout log, not medical advice. Stop if pain is sharp, sudden, or lingering.'
+
+export const SAFETY_REMINDER = 'Informational only. Never push through pain.'
+
+export const SAFETY_POINTS = [
+  'MuscleJot is a workout log. It is not medical, injury, or diet advice.',
+  'Talk with a doctor before you start or change a program.',
+  'Lift with caution and good form. On a heavy bench or squat, or any set near failure, use a spotter.',
+  'Pay attention to your body. A healthy burn and pain are not the same. Sharp, sudden, joint, or lingering pain means stop.',
+  'Rest and recover. A workout does not need to be torture.',
+]
 
 export const MUSCLES = [
   'chest',

@@ -3,7 +3,7 @@ import { formatClock, formatDay, formatNumber, parseReps, parseWeight, weekdayNa
 import { InstallBanner } from '../install'
 import { e1rmInUnit, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit } from '../logic'
 import { useActiveWorkout, useStore } from '../store'
-import { DISCLAIMER, equipmentLabel, muscleLabel, type Exercise } from '../types'
+import { equipmentLabel, muscleLabel, type Exercise } from '../types'
 import { Button, Panel, Wordmark, cx } from '../ui'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -49,9 +49,6 @@ export function LogScreen({ goMore }: { goMore: () => void }) {
         </h1>
         <p className="mt-1 text-mist">Weightlifting log. Sets save on this device as you go.</p>
       </header>
-      <p className="text-sm leading-relaxed text-faint" data-testid="disclaimer">
-        {DISCLAIMER}
-      </p>
       <InstallBanner onOpen={goMore} />
       {remind ? (
         <button
@@ -389,6 +386,9 @@ function Logger({
             {banner.previous != null ? ` · previous ${formatNumber(banner.previous)} ${unit}` : ''}
           </p>
           <p className="mt-1 text-sm">Epley: weight × (1 + reps ÷ 30).</p>
+          <p className="mt-1 text-sm" data-testid="safety-reminder">
+            Informational only. Never push through pain.
+          </p>
         </div>
       ) : null}
       {remaining > 0 && workout ? (

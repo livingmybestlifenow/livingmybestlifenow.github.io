@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { SAFETY_POINTS } from './types'
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ')
@@ -26,6 +27,16 @@ export function Button({
         className,
       )}
     />
+  )
+}
+
+export function SafetyPoints() {
+  return (
+    <div className="grid gap-3 leading-relaxed">
+      {SAFETY_POINTS.map((point) => (
+        <p key={point}>{point}</p>
+      ))}
+    </div>
   )
 }
 
