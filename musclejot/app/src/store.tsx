@@ -48,6 +48,8 @@ type StoreValue = {
   startWorkout: (input: { name: string; routineId: string | null; plannedExerciseIds: string[] }) => Promise<Workout>
   updateWorkout: (id: string, patch: Partial<Workout>) => Promise<void>
   finishWorkout: (id: string) => Promise<void>
+  pauseWorkout: (id: string) => Promise<void>
+  resumeWorkout: (id: string) => Promise<void>
   deleteWorkout: (id: string) => Promise<void>
   updateSet: (set: LiftSet) => Promise<void>
   addSet: (input: { workoutId: string; exerciseId: string; weight: number; reps: number; durationSec: number | null }) => Promise<void>
@@ -166,6 +168,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           restEndsAt: null,
           setStartedAt: null,
           pendingSetSec: null,
+          pausedAt: null,
+          pausedMs: 0,
           updatedAt: now,
         }
         await putWorkout(workout)
@@ -184,11 +188,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const applyWorkout = (next: Workout) => {
+    workoutsRef.current = workoutsRef.current.map((item) => (item.id === next.id ? next : item))
+    setWorkouts(workoutsRef.current)
+  }
+
   const finishWorkout = useCallback(
     (id: string) =>
       enqueue(async () => {
-        const next = await patchWorkout(id, { finishedAt: Date.now(), restEndsAt: null, setStartedAt: null, pendingSetSec: null })
-        setWorkouts((current) => current.map((workout) => (workout.id === id ? next : workout)))
+        const workout = workoutsRef.current.find((item) => item.id === id)
+        const now = Date.now()
+        let pausedMs = workout?.pausedMs ?? 0
+        if (workout?.pausedAt != null) pausedMs += Math.max(0, now - workout.pausedAt)
+        const next = await patchWorkout(id, {
+          finishedAt: now,
+          pausedAt: null,
+          pausedMs,
+          restEndsAt: null,
+          setStartedAt: null,
+          pendingSetSec: null,
+        })
+        applyWorkout(next)
+      }),
+    [],
+  )
+
+  const pauseWorkout = useCallback(
+    (id: string) =>
+      enqueue(async () => {
+        const workout = workoutsRef.current.find((item) => item.id === id)
+        if (!workout || workout.pausedAt != null || workout.finishedAt != null) return
+        const next = await patchWorkout(id, { pausedAt: Date.now() })
+        applyWorkout(next)
+      }),
+    [],
+  )
+
+  const resumeWorkout = useCallback(
+    (id: string) =>
+      enqueue(async () => {
+        const workout = workoutsRef.current.find((item) => item.id === id)
+        if (!workout?.pausedAt) return
+        const now = Date.now()
+        const delta = Math.max(0, now - workout.pausedAt)
+        const next = await patchWorkout(id, {
+          pausedAt: null,
+          pausedMs: workout.pausedMs + delta,
+          setStartedAt: workout.setStartedAt == null ? null : workout.setStartedAt + delta,
+          restEndsAt: workout.restEndsAt == null ? null : workout.restEndsAt + delta,
+        })
+        applyWorkout(next)
       }),
     [],
   )
@@ -567,6 +616,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     startWorkout,
     updateWorkout,
     finishWorkout,
+    pauseWorkout,
+    resumeWorkout,
     deleteWorkout,
     updateSet,
     addSet,

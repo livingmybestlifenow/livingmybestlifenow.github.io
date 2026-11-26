@@ -141,6 +141,8 @@ function normalizeWorkout(workout: Workout): Workout {
     restEndsAt: workout.restEndsAt ?? null,
     setStartedAt: workout.setStartedAt ?? null,
     pendingSetSec: workout.pendingSetSec ?? null,
+    pausedAt: workout.pausedAt ?? null,
+    pausedMs: typeof workout.pausedMs === 'number' ? workout.pausedMs : 0,
     updatedAt: workout.updatedAt ?? workout.startedAt,
   }
 }

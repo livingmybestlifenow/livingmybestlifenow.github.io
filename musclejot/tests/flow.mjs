@@ -116,9 +116,26 @@ try {
   await shot(page, 'chime-panel.png', page.getByTestId('chime-panel'))
 
   await page.getByRole('button', { name: 'Log', exact: true }).click()
+  await page.getByTestId('start-hint').waitFor()
+  assert(await page.getByTestId('start-empty').isDisabled(), 'Start workout should wait for a choice')
+  assert((await page.getByTestId('start-hint').innerText()).includes('Pick a workout to start'), 'missing start hint')
+  await shot(page, 'pick-workout.png', page.getByTestId('start-hint'))
+  await page.getByTestId('pick-new-workout').click()
+  assert(!(await page.getByTestId('start-empty').isDisabled()), 'Start workout stayed disabled after a choice')
   await page.getByTestId('start-empty').click()
   await page.getByTestId('workout-timer').waitFor()
+  await page.getByTestId('pause-workout').click()
+  await page.getByTestId('resume-workout').waitFor()
+  const frozen = (await page.getByTestId('workout-clock').innerText()).trim()
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByTestId('app-ready').waitFor()
+  await page.getByTestId('resume-workout').waitFor()
+  assert((await page.getByTestId('workout-clock').innerText()).trim() === frozen, 'pause did not survive reload')
+  await shot(page, 'paused-workout.png', page.getByTestId('workout-timer'))
+  await page.getByTestId('resume-workout').click()
+  await page.getByTestId('pause-workout').waitFor()
   await shot(page, 'workout-timer.png', page.getByTestId('workout-timer'))
+  await page.getByTestId('add-exercise').click()
   await page.getByTestId('pick-ex-bench').click()
   await page.getByTestId('weight-plus').click()
   assert((await page.getByTestId('weight-value').inputValue()) === '2.5', 'plate plus did not step by 2.5')
@@ -164,7 +181,8 @@ try {
   await page.getByRole('button', { name: 'Edit Push day' }).waitFor()
 
   await page.getByRole('button', { name: 'Log', exact: true }).click()
-  await page.getByRole('button', { name: 'Start Push day' }).click()
+  await page.getByRole('button', { name: 'Push day', exact: true }).click()
+  await page.getByTestId('start-empty').click()
   await page.getByTestId('last-sets').waitFor()
   const recall = await page.getByTestId('last-sets').innerText()
   assert(recall.includes('100 lb × 5'), `last-set recall missing: ${recall}`)
@@ -190,6 +208,7 @@ try {
   await page.getByTestId('start-empty').waitFor()
 
   for (let extra = 0; extra < 2; extra += 1) {
+    await page.getByTestId('pick-new-workout').click()
     await page.getByTestId('start-empty').click()
     await page.getByTestId('pick-ex-squat').click()
     await page.getByTestId('weight-value').fill('200')
@@ -233,7 +252,7 @@ try {
   assert(csv.includes('100') && csv.includes('110') && csv.includes('200'), 'csv missing weights')
   assert(csv.includes('Seat 4, pin 8'), 'csv missing setup note')
   assert(csv.includes('set_duration_sec') && csv.includes('workout_duration_sec'), 'csv missing duration columns')
-  assert(csv.includes('active_sec') && csv.includes('rest_sec'), 'csv missing active and rest columns')
+  assert(csv.includes('active_sec') && csv.includes('rest_sec') && csv.includes('paused_sec'), 'csv missing time columns')
   await page.getByTestId('export-status').waitFor()
   assert((await page.getByTestId('export-status').innerText()).includes(filename), 'export status')
   await shot(page, 'csv-export.png', page.getByTestId('export-status'))
@@ -314,6 +333,8 @@ try {
 
   await mkdir(ARTIFACTS, { recursive: true })
   for (const name of [
+    'pick-workout.png',
+    'paused-workout.png',
     'workout-timer.png',
     'chime-panel.png',
     'time-summary.png',

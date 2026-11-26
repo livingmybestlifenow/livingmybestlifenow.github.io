@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { formatDay, formatDuration, formatNumber, parseReps, parseWeight } from '../format'
-import { activePercent, activeSeconds, e1rmInUnit, exerciseOrder, moveItem, restSeconds, toUnit, workoutDurationSec } from '../logic'
+import { activePercent, activeSeconds, e1rmInUnit, exerciseOrder, moveItem, pausedSeconds, restSeconds, toUnit, workoutDurationSec } from '../logic'
 import { useStore } from '../store'
 import { equipmentLabel, muscleLabel, type LiftSet, type Workout } from '../types'
 import { Button, Panel } from '../ui'
@@ -47,7 +47,7 @@ export function HistoryScreen() {
                   {workout.finishedAt == null ? 'In progress · ' : ''}
                   {rows.length === 1 ? '1 set' : `${rows.length} sets`}
                   {names.length ? ` · ${names.join(', ')}` : ''}
-                  {timing ? ` · ${timing.total} · ${timing.percent}% active` : ''}
+                  {timing ? ` · ${timing.total} · ${timing.paused} paused · ${timing.percent}% active` : ''}
                 </span>
               </button>
             )
@@ -67,6 +67,7 @@ function timeSummary(workout: Workout, rows: { durationSec: number | null }[]) {
     total: formatDuration(totalSec),
     active: formatDuration(active),
     rest: formatDuration(restSeconds(totalSec, active)),
+    paused: formatDuration(pausedSeconds(workout, Date.now())),
     percent,
   }
 }
@@ -104,7 +105,7 @@ function WorkoutDetail({ workout, onBack }: { workout: Workout; onBack: () => vo
       <p className="text-sm text-mist">{formatDay(workout.startedAt)}</p>
       {timing ? (
         <p className="text-sm leading-relaxed" data-testid="workout-time">
-          {timing.total} total · {timing.active} active · {timing.rest} rest · {timing.percent}% active
+          {timing.total} total · {timing.active} active · {timing.rest} rest · {timing.paused} paused · {timing.percent}% active
         </p>
       ) : null}
       <Button

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { playChime, pulseVibrate, unlockAudio } from '../chime'
 import { formatClock, formatDay, formatDuration, formatNumber, parseReps, parseWeight, weekdayName } from '../format'
 import { InstallBanner } from '../install'
-import { e1rmInUnit, moveItem, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
+import { e1rmInUnit, moveItem, pausedSeconds, previousSessionSets, prSetIds, stepFor, stepWeight, toUnit, workoutDurationSec } from '../logic'
 import { useActiveWorkout, useStore } from '../store'
 import { REST_PRESETS, equipmentLabel, muscleLabel, type Exercise } from '../types'
 import { Button, Panel, Wordmark, cx } from '../ui'
@@ -20,10 +20,10 @@ export function LogScreen({ goMore }: { goMore: () => void }) {
 
   const remind = store.sets.length > 0 && (store.lastExportAt == null || Date.now() - store.lastExportAt > WEEK)
 
-  async function startEmpty() {
+  async function startEmpty(name: string) {
     setError(null)
     setBanner(null)
-    await store.startWorkout({ name: weekdayName(), routineId: null, plannedExerciseIds: [] })
+    await store.startWorkout({ name, routineId: null, plannedExerciseIds: [] })
     setSelected(null)
     setPicking(true)
   }
@@ -79,34 +79,76 @@ export function LogScreen({ goMore }: { goMore: () => void }) {
           onError={setError}
         />
       ) : (
-        <StartList onEmpty={() => void startEmpty()} onRoutine={(id) => void startRoutine(id)} />
+        <StartList onEmpty={(name) => void startEmpty(name)} onRoutine={(id) => void startRoutine(id)} />
       )}
     </div>
   )
 }
 
-function StartList({ onEmpty, onRoutine }: { onEmpty: () => void; onRoutine: (id: string) => void }) {
+function StartList({ onEmpty, onRoutine }: { onEmpty: (name: string) => void; onRoutine: (id: string) => void }) {
   const { routines } = useStore()
+  const [choice, setChoice] = useState<'new' | string | null>(null)
+  const [name, setName] = useState(weekdayName())
+  const ready = choice === 'new' ? name.trim().length > 0 : choice != null
   return (
     <div className="grid gap-3">
-      <Button
-        data-testid="start-empty"
-        onClick={() => {
-          unlockAudio()
-          onEmpty()
-        }}
+      <p className="text-sm leading-relaxed text-mist" data-testid="start-hint">
+        {ready ? 'Ready to start.' : 'Pick a workout to start'}
+      </p>
+      <button
+        type="button"
+        data-testid="pick-new-workout"
+        aria-pressed={choice === 'new'}
+        className={cx(
+          'min-h-14 rounded-2xl border px-4 text-left text-lg font-semibold',
+          choice === 'new' ? 'border-amber bg-panel text-ambertext' : 'border-line bg-panel',
+        )}
+        onClick={() => setChoice('new')}
       >
-        Start workout
-      </Button>
+        New workout
+      </button>
+      {choice === 'new' ? (
+        <label className="block text-sm font-medium text-mist">
+          Name
+          <input
+            data-testid="new-workout-name"
+            className="field mt-1"
+            value={name}
+            maxLength={80}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+      ) : null}
       {routines
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((routine) => (
-          <Button key={routine.id} variant="secondary" data-testid={`start-routine-${routine.id}`} onClick={() => onRoutine(routine.id)}>
-            Start {routine.name}
-          </Button>
+          <button
+            key={routine.id}
+            type="button"
+            data-testid={`pick-routine-${routine.id}`}
+            aria-pressed={choice === routine.id}
+            className={cx(
+              'min-h-14 rounded-2xl border px-4 text-left text-lg font-semibold',
+              choice === routine.id ? 'border-amber bg-panel text-ambertext' : 'border-line bg-panel',
+            )}
+            onClick={() => setChoice(routine.id)}
+          >
+            {routine.name}
+          </button>
         ))}
-      <p className="text-sm leading-relaxed text-mist">Routines are templates. Build them in Library, then start one here.</p>
+      <Button
+        data-testid="start-empty"
+        disabled={!ready}
+        onClick={() => {
+          if (!ready || choice == null) return
+          unlockAudio()
+          if (choice === 'new') onEmpty(name.trim())
+          else onRoutine(choice)
+        }}
+      >
+        Start workout
+      </Button>
     </div>
   )
 }
@@ -137,7 +179,10 @@ function ActiveWorkout({
   const now = useVisibleNow(workout != null && workout.finishedAt == null)
   if (!workout) return null
   const active = workout
-  const elapsedSec = workoutDurationSec(active, now)
+  const paused = active.pausedAt != null
+  const clock = paused && active.pausedAt != null ? active.pausedAt : now
+  const elapsedSec = workoutDurationSec(active, clock)
+  const pausedSec = pausedSeconds(active, now)
   const planned = active.plannedExerciseIds.filter((id) => store.exercises.some((exercise) => exercise.id === id))
   const exerciseId = selected && planned.includes(selected) ? selected : (planned[0] ?? null)
   const exercise = store.exercises.find((item) => item.id === exerciseId) ?? null
@@ -165,8 +210,36 @@ function ActiveWorkout({
         />
       </label>
       <div className="rounded-3xl border border-line bg-panel px-4 py-3" data-testid="workout-timer">
-        <p className="text-sm text-mist">Workout</p>
-        <p className="font-mono text-4xl font-semibold">{formatDuration(elapsedSec)}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-mist">{paused ? 'Paused' : 'Workout'}</p>
+            <p className="font-mono text-4xl font-semibold" data-testid="workout-clock">
+              {formatDuration(elapsedSec)}
+            </p>
+            <p className="text-sm text-mist" data-testid="paused-time">
+              {formatDuration(pausedSec)} paused
+            </p>
+          </div>
+          {paused ? (
+            <button
+              type="button"
+              data-testid="resume-workout"
+              className="min-h-14 rounded-2xl bg-amber px-5 text-lg font-semibold text-ink"
+              onClick={() => void store.resumeWorkout(active.id)}
+            >
+              Resume
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-testid="pause-workout"
+              className="min-h-14 rounded-2xl border border-line bg-panel2 px-5 text-lg font-semibold"
+              onClick={() => void store.pauseWorkout(active.id)}
+            >
+              Pause
+            </button>
+          )}
+        </div>
       </div>
       {picking ? (
         <ExercisePicker onPick={(id) => void addExercise(id)} onClose={() => onPickMode(false)} />
@@ -210,7 +283,8 @@ function ActiveWorkout({
               exercise={exercise}
               busy={busy}
               banner={banner}
-              now={now}
+              now={clock}
+              paused={paused}
               onBanner={onBanner}
               onBusy={onBusy}
               onError={onError}
@@ -333,6 +407,7 @@ function Logger({
   busy,
   banner,
   now,
+  paused,
   onBanner,
   onBusy,
   onError,
@@ -341,6 +416,7 @@ function Logger({
   busy: boolean
   banner: { name: string; e1rm: number; previous: number | null } | null
   now: number
+  paused: boolean
   onBanner: (banner: { name: string; e1rm: number; previous: number | null } | null) => void
   onBusy: (busy: boolean) => void
   onError: (message: string | null) => void
@@ -379,13 +455,13 @@ function Logger({
   const chimed = useRef<number | null>(null)
   const milestone = useRef<number | null>(null)
   useEffect(() => {
-    if (!workout || !ends || now < ends) return
+    if (paused || !workout || !ends || now < ends) return
     if (chimed.current === ends) return
     chimed.current = ends
     if (!store.settings.muted) playChime(store.settings.chime)
     if (store.settings.vibrate) pulseVibrate()
     void store.updateWorkout(workout.id, { restEndsAt: null })
-  }, [ends, now, store, workout])
+  }, [ends, now, paused, store, workout])
   useEffect(() => {
     if (!setStartedAt || !store.settings.setMilestoneChime) {
       milestone.current = null
@@ -515,7 +591,8 @@ function Logger({
               <button
                 type="button"
                 data-testid="start-set-timer"
-                className="min-h-14 rounded-2xl border border-line bg-panel2 px-5 text-lg font-semibold"
+                disabled={paused}
+                className="min-h-14 rounded-2xl border border-line bg-panel2 px-5 text-lg font-semibold disabled:opacity-40"
                 onClick={() => {
                   unlockAudio()
                   void store.startSetTimer(workout.id)
@@ -583,7 +660,7 @@ function Logger({
       <p className="text-center font-mono text-lg" data-testid="e1rm-preview">
         {preview == null ? 'Est. 1RM —' : `Est. 1RM ${formatNumber(preview)} ${unit}`}
       </p>
-      <Button type="submit" data-testid="log-set" disabled={busy || weight == null || reps == null}>
+      <Button type="submit" data-testid="log-set" disabled={paused || busy || weight == null || reps == null}>
         {busy ? 'Saving…' : 'Log set'}
       </Button>
       {sessionSets.length ? (
