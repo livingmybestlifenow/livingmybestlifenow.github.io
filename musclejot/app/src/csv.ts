@@ -1,5 +1,5 @@
 import { fileStamp, localStamp } from './format'
-import { e1rmInUnit, setVolume } from './logic'
+import { e1rmInUnit, setVolume, toUnit } from './logic'
 import { equipmentLabel, muscleLabel, type Exercise, type LiftSet, type SetupNote, type Unit, type Workout } from './types'
 
 function cell(value: string): string {
@@ -34,6 +34,8 @@ export function setsToCsv(
     'set_id',
     'workout_id',
     'exercise_id',
+    'logged_weight',
+    'logged_unit',
   ]
   const lines = [header.join(',')]
   const ordered = [...sets].sort((a, b) => a.createdAt - b.createdAt || a.order - b.order)
@@ -41,6 +43,7 @@ export function setsToCsv(
     const exercise = exerciseById.get(set.exerciseId)
     const workout = workoutById.get(set.workoutId)
     const e1rm = e1rmInUnit(set.weight, set.unit, set.reps, displayUnit)
+    const weight = Math.round(toUnit(set.weight, set.unit, displayUnit) * 10) / 10
     lines.push(
       [
         localStamp(set.createdAt),
@@ -49,16 +52,18 @@ export function setsToCsv(
         exercise ? equipmentLabel(exercise.equipment) : '',
         exercise ? muscleLabel(exercise.primary) : '',
         exercise ? exercise.secondary.map(muscleLabel).join('|') : '',
-        String(set.weight),
-        set.unit,
+        String(weight),
+        displayUnit,
         String(set.reps),
         e1rm == null ? '' : String(Math.round(e1rm * 10) / 10),
         e1rm == null ? '' : displayUnit,
-        String(Math.round(setVolume(set, set.unit) * 10) / 10),
+        String(Math.round(setVolume(set, displayUnit) * 10) / 10),
         noteById.get(set.exerciseId) ?? '',
         set.id,
         set.workoutId,
         set.exerciseId,
+        String(set.weight),
+        set.unit,
       ]
         .map(cell)
         .join(','),

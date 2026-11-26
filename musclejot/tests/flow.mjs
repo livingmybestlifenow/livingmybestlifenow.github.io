@@ -92,6 +92,10 @@ try {
 
   await page.getByRole('button', { name: 'More', exact: true }).click()
   await page.getByText('Install app').waitFor()
+  const unitSelect = page.getByTestId('weight-unit')
+  assert((await unitSelect.inputValue()) === 'lb', 'weight unit should default to lb')
+  const unitOptions = await unitSelect.locator('option').allTextContents()
+  assert(unitOptions.includes('lb') && unitOptions.includes('kg'), `unit options ${unitOptions.join(',')}`)
   await page.getByTestId('plate-step').fill('2.5')
   await page.getByTestId('dumbbell-step').fill('5')
   await page.getByTestId('stall-sessions').fill('3')
@@ -208,6 +212,27 @@ try {
   assert((await page.getByTestId('export-status').innerText()).includes(filename), 'export status')
   await shot(page, 'csv-export.png', page.getByTestId('export-status'))
 
+  await page.getByTestId('weight-unit').selectOption('kg')
+  await page.getByRole('button', { name: 'History', exact: true }).click()
+  await page.getByRole('button', { name: /1 set · Bench press/ }).click()
+  await page.getByText('45.4 kg').waitFor()
+  await shot(page, 'weight-unit-kg.png', page.getByText('45.4 kg'))
+  await page.getByRole('button', { name: 'All workouts' }).click()
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByTestId('app-ready').waitFor()
+  await page.getByRole('button', { name: 'More', exact: true }).click()
+  assert((await page.getByTestId('weight-unit').inputValue()) === 'kg', 'weight unit was not saved on this device')
+  assert((await page.getByTestId('plate-step').inputValue()) === '2.5', 'kg plate step should default to 2.5')
+  const [kgDownload] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('export-csv').click(),
+  ])
+  const kgCsv = await readFile(await kgDownload.path(), 'utf8')
+  assert(kgCsv.includes('weight,unit,reps'), kgCsv.slice(0, 180))
+  assert(kgCsv.includes('45.4,kg,5'), 'csv did not convert the 100 lb set into the selected unit')
+  assert(kgCsv.includes('logged_weight,logged_unit') && kgCsv.includes('100,lb'), 'csv dropped the logged weight')
+  await shot(page, 'weight-unit.png', page.getByTestId('weight-unit'))
+
   await context.setOffline(true)
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.getByTestId('app-ready').waitFor({ timeout: 15000 })
@@ -238,6 +263,8 @@ try {
     'progress-chart.png',
     'stall-flag.png',
     'csv-export.png',
+    'weight-unit.png',
+    'weight-unit-kg.png',
     'offline-history.png',
     'desktop-log.png',
   ]) {

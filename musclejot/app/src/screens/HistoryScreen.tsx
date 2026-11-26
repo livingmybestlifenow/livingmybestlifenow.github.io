@@ -85,7 +85,7 @@ function WorkoutDetail({ workout, onBack }: { workout: Workout; onBack: () => vo
                 return (
                   <li key={set.id} className="font-mono text-lg">
                     {index + 1}. {formatNumber(toUnit(set.weight, set.unit, settings.unit))} {settings.unit} × {set.reps}
-                    {e1rm == null ? '' : ` · ${formatNumber(e1rm)} e1RM`}
+                    {e1rm == null ? '' : ` · ${formatNumber(e1rm)} ${settings.unit} e1RM`}
                   </li>
                 )
               })}

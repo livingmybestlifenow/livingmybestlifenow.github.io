@@ -454,7 +454,7 @@ function Logger({
                   {index + 1}. {formatNumber(toUnit(set.weight, set.unit, unit))} {unit} × {set.reps}
                 </span>
                 <span className="text-sm text-mist">
-                  {e1rm == null ? '' : `${formatNumber(e1rm)} e1RM`}
+                  {e1rm == null ? '' : `${formatNumber(e1rm)} ${unit} e1RM`}
                   {records.has(set.id) ? ' · PR' : ''}
                 </span>
                 <button type="button" className="min-h-12 px-2 text-sm font-semibold text-mist" onClick={() => void store.deleteSet(set.id)}>

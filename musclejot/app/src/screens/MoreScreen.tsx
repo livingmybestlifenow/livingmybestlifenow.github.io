@@ -70,25 +70,24 @@ export function MoreScreen() {
       ) : null}
       <Panel>
         <h2 className="text-lg font-semibold">Units and steps</h2>
-        <p className="mt-1 text-sm leading-relaxed text-mist">The + and − buttons follow the plate or dumbbell step for the lift you are logging.</p>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {(['lb', 'kg'] as const).map((unit) => (
-            <button
-              key={unit}
-              type="button"
-              data-testid={`unit-${unit}`}
-              aria-pressed={settings.unit === unit}
-              className={
-                settings.unit === unit
-                  ? 'min-h-12 rounded-2xl bg-amber font-semibold text-ink'
-                  : 'min-h-12 rounded-2xl border border-line font-semibold'
-              }
-              onClick={() => save({ unit: unit satisfies Unit })}
-            >
-              {unit}
-            </button>
-          ))}
-        </div>
+        <p className="mt-1 text-sm leading-relaxed text-mist">
+          Weights on screen use this unit. Logged sets keep the unit they were saved in, and the + and − buttons follow the plate or dumbbell step for the unit you pick.
+        </p>
+        <label className="mt-3 block text-sm font-medium text-mist">
+          Weight unit
+          <select
+            data-testid="weight-unit"
+            className="field mt-1"
+            value={settings.unit}
+            onChange={(event) => {
+              const unit: Unit = event.target.value === 'kg' ? 'kg' : 'lb'
+              save({ unit })
+            }}
+          >
+            <option value="lb">lb</option>
+            <option value="kg">kg</option>
+          </select>
+        </label>
         <div className="mt-3 grid gap-3">
           <NumberField
             testId="plate-step"
@@ -119,7 +118,7 @@ export function MoreScreen() {
       <Panel>
         <h2 className="text-lg font-semibold">Download CSV</h2>
         <p className="mt-1 text-sm leading-relaxed text-mist">
-          Every set, any time. The file name starts with musclejot-. History in the app is never locked.
+          Every set, any time, in the unit selected above. The file also keeps the weight and unit that were logged. The file name starts with musclejot-. History in the app is never locked.
         </p>
         <p className="mt-2 text-sm text-mist">
           {store.sets.length === 1 ? '1 set' : `${store.sets.length} sets`}

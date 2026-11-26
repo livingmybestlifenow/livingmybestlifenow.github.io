@@ -81,6 +81,8 @@ describe('increment steps', () => {
 
   it('uses the dumbbell increment only for dumbbells', () => {
     const settings = { ...DEFAULT_SETTINGS, plateStepLb: 2.5, dumbbellStepLb: 5 }
+    expect(stepFor('barbell', DEFAULT_SETTINGS)).toBe(5)
+    expect(stepFor('barbell', { ...DEFAULT_SETTINGS, unit: 'kg' })).toBe(2.5)
     expect(stepFor('barbell', settings)).toBe(2.5)
     expect(stepFor('machine', settings)).toBe(2.5)
     expect(stepFor('dumbbell', settings)).toBe(5)
@@ -205,7 +207,17 @@ describe('csv', () => {
     expect(csv).toContain('"Push, day"')
     expect(csv).toContain('"Bench ""press"""')
     expect(csv).toContain('Seat 4')
+    expect(csv).toContain('logged_weight,logged_unit')
     expect(csv).toContain('100,lb,5')
+    const kilograms = setsToCsv(
+      [set({ id: 's1', workoutId: 'w1', exerciseId: 'ex-bench', weight: 100, reps: 5, createdAt: Date.UTC(2026, 10, 26) })],
+      [workout],
+      [exercise],
+      [],
+      'kg',
+    )
+    expect(kilograms).toContain('45.4,kg,5')
+    expect(kilograms).toContain('100,lb')
   })
 })
 
