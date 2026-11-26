@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { formatDay, formatDuration, formatNumber, parseReps, parseWeight } from '../format'
 import { activePercent, activeSeconds, e1rmInUnit, exerciseOrder, moveItem, pausedSeconds, restSeconds, toUnit, workoutDurationSec } from '../logic'
+import { ExercisePicker } from '../exercise-picker'
 import { useStore } from '../store'
-import { equipmentLabel, muscleLabel, type LiftSet, type Workout } from '../types'
+import type { LiftSet, Workout } from '../types'
 import { Button, Panel } from '../ui'
 
 export function HistoryScreen() {
@@ -358,32 +359,3 @@ function AddSetForm({ workoutId, exerciseId }: { workoutId: string; exerciseId: 
   )
 }
 
-function ExercisePicker({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
-  const { exercises } = useStore()
-  const [query, setQuery] = useState('')
-  const needle = query.trim().toLowerCase()
-  const list = exercises
-    .filter((exercise) => !exercise.archived && exercise.name.toLowerCase().includes(needle))
-    .sort((a, b) => a.name.localeCompare(b.name))
-  return (
-    <div className="grid gap-2">
-      <input className="field" placeholder="Search lifts" value={query} onChange={(event) => setQuery(event.target.value)} />
-      {list.map((exercise) => (
-        <button
-          key={exercise.id}
-          type="button"
-          className="min-h-14 rounded-2xl border border-line px-3 text-left"
-          onClick={() => onPick(exercise.id)}
-        >
-          <span className="block font-semibold">{exercise.name}</span>
-          <span className="text-sm text-mist">
-            {equipmentLabel(exercise.equipment)} · {muscleLabel(exercise.primary)}
-          </span>
-        </button>
-      ))}
-      <Button variant="secondary" onClick={onClose}>
-        Cancel
-      </Button>
-    </div>
-  )
-}

@@ -25,6 +25,7 @@ export const MUSCLES = [
   'calves',
   'core',
   'forearms',
+  'traps',
 ] as const
 
 export type Muscle = (typeof MUSCLES)[number]
@@ -140,6 +141,7 @@ export const MUSCLE_LABEL: Record<Muscle, string> = {
   calves: 'Calves',
   core: 'Core',
   forearms: 'Forearms',
+  traps: 'Traps',
 }
 
 export const EQUIPMENT_LABEL: Record<Equipment, string> = {
