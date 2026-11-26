@@ -1,0 +1,46 @@
+import type { Exercise } from './types'
+
+const built = (
+  id: string,
+  name: string,
+  equipment: Exercise['equipment'],
+  primary: Exercise['primary'],
+  secondary: Exercise['secondary'],
+): Exercise => ({
+  id,
+  name,
+  equipment,
+  primary,
+  secondary,
+  custom: false,
+  archived: false,
+  createdAt: 0,
+})
+
+export const STARTER_EXERCISES: Exercise[] = [
+  built('ex-bench', 'Bench press', 'barbell', 'chest', ['triceps', 'shoulders']),
+  built('ex-incline-bench', 'Incline bench press', 'barbell', 'chest', ['shoulders', 'triceps']),
+  built('ex-ohp', 'Overhead press', 'barbell', 'shoulders', ['triceps']),
+  built('ex-row', 'Barbell row', 'barbell', 'back', ['biceps']),
+  built('ex-deadlift', 'Deadlift', 'barbell', 'back', ['glutes', 'hamstrings']),
+  built('ex-squat', 'Back squat', 'barbell', 'quads', ['glutes', 'hamstrings']),
+  built('ex-rdl', 'Romanian deadlift', 'barbell', 'hamstrings', ['glutes', 'back']),
+  built('ex-hip-thrust', 'Hip thrust', 'barbell', 'glutes', ['hamstrings']),
+  built('ex-db-bench', 'Dumbbell bench press', 'dumbbell', 'chest', ['triceps', 'shoulders']),
+  built('ex-db-row', 'Dumbbell row', 'dumbbell', 'back', ['biceps']),
+  built('ex-db-press', 'Dumbbell shoulder press', 'dumbbell', 'shoulders', ['triceps']),
+  built('ex-lateral', 'Lateral raise', 'dumbbell', 'shoulders', []),
+  built('ex-curl', 'Biceps curl', 'dumbbell', 'biceps', ['forearms']),
+  built('ex-hammer', 'Hammer curl', 'dumbbell', 'biceps', ['forearms']),
+  built('ex-leg-press', 'Leg press', 'machine', 'quads', ['glutes']),
+  built('ex-leg-curl', 'Leg curl', 'machine', 'hamstrings', []),
+  built('ex-leg-ext', 'Leg extension', 'machine', 'quads', []),
+  built('ex-calf', 'Calf raise', 'machine', 'calves', []),
+  built('ex-chest-press', 'Chest press', 'machine', 'chest', ['triceps', 'shoulders']),
+  built('ex-pulldown', 'Lat pulldown', 'cable', 'back', ['biceps']),
+  built('ex-seated-row', 'Seated row', 'cable', 'back', ['biceps']),
+  built('ex-pushdown', 'Triceps pushdown', 'cable', 'triceps', []),
+  built('ex-face-pull', 'Face pull', 'cable', 'shoulders', ['back']),
+  built('ex-pullup', 'Pull-up', 'bodyweight', 'back', ['biceps']),
+  built('ex-dip', 'Dip', 'bodyweight', 'triceps', ['chest', 'shoulders']),
+]
